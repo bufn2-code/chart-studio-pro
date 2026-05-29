@@ -25,8 +25,8 @@ const defaultData = {
 
 const getSafePts = (pointsArr, index) => {
   if (!pointsArr || pointsArr.length === 0) return 0;
-  if (index < pointsArr.length) return pointsArr[index];
-  return pointsArr[pointsArr.length - 1]; 
+  let val = index < pointsArr.length ? pointsArr[index] : pointsArr[pointsArr.length - 1]; 
+  return Number(val) || 0;
 };
 
 export default function App() {
@@ -39,6 +39,7 @@ export default function App() {
   const [layout, setLayout] = useState('16:9');
   const [topN, setTopN] = useState(5); 
   const [markerStyle, setMarkerStyle] = useState('logo'); 
+  const [popupEffect, setPopupEffect] = useState('trophy'); // BARU: State untuk popup pencapaian
   
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
@@ -50,13 +51,13 @@ export default function App() {
   const prevTime = useRef(null);
 
   // ----------------------------------------------------------------------------
-  // MESIN AUTO-RANK (Kini menyematkan originalIndex ke dalam item agar ketikan stabil)
+  // MESIN AUTO-RANK 
   // ----------------------------------------------------------------------------
   const computedItems = useMemo(() => {
     let newItems = JSON.parse(JSON.stringify(data.items));
     newItems.forEach((item, idx) => { 
       item.ranks = []; 
-      item.originalIndex = idx; // Simpan index asli sebagai pelacak unik
+      item.originalIndex = idx; 
     }); 
 
     for (let w = 0; w < data.periods; w++) {
@@ -112,7 +113,7 @@ export default function App() {
   };
 
   // ----------------------------------------------------------------------------
-  // HANDLERS DATA EDITOR (Kini menggunakan Index Asli agar ketikan tidak blank)
+  // HANDLERS DATA EDITOR
   // ----------------------------------------------------------------------------
   const handleUpdateGeneral = (field, value) => setData(prev => ({ ...prev, [field]: value }));
   
@@ -121,7 +122,7 @@ export default function App() {
       const newItems = [...prev.items];
       const newPoints = [...newItems[index].points];
       while (newPoints.length < prev.periods) newPoints.push(newPoints[newPoints.length - 1] || 0);
-      newPoints[periodIndex] = parseInt(value) || 0;
+      newPoints[periodIndex] = value === '' ? '' : (parseInt(value, 10) || 0);
       newItems[index] = { ...newItems[index], points: newPoints };
       return { ...prev, items: newItems };
     });
@@ -136,7 +137,6 @@ export default function App() {
   };
 
   const handleAddItem = () => {
-    // Mengganti Default Name dari "New Team" menjadi "Data Baru" yang lebih netral
     const newItem = { id: `NEW`, name: "Data Baru", color: "#3B82F6", logo: "", points: Array(data.periods).fill(0) };
     setData(prev => ({ ...prev, items: [...prev.items, newItem] }));
   };
@@ -151,7 +151,7 @@ export default function App() {
   };
 
   // ----------------------------------------------------------------------------
-  // LOGIKA MAGIC IMPORT (AI / EXCEL PARSER)
+  // LOGIKA MAGIC IMPORT
   // ----------------------------------------------------------------------------
   const handleImportData = () => {
     try {
@@ -327,6 +327,17 @@ export default function App() {
               </div>
             </div>
 
+            {/* OPSI EFEK POP-UP PENCAPAIAN */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase">Efek Pop-up (Saat Poin Naik)</label>
+              <div className="flex gap-2">
+                <button onClick={() => setPopupEffect('none')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${popupEffect === 'none' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Mati</button>
+                <button onClick={() => setPopupEffect('angka')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${popupEffect === 'angka' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Angka</button>
+                <button onClick={() => setPopupEffect('trophy')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${popupEffect === 'trophy' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Trofi 🏆</button>
+                <button onClick={() => setPopupEffect('star')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${popupEffect === 'star' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Bintang ⭐</button>
+              </div>
+            </div>
+
             <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div>
                 <div className="flex justify-between text-xs mb-2 text-slate-600 font-bold">
@@ -469,14 +480,42 @@ export default function App() {
                         )
                       ))}
                     </g>
+                    {/* RENDERER MARKER DINAMIS */}
                     {computedItems.map((item) => {
                       const pos = getMarkerPos(item, progress);
                       if (pos.rank > safeTopN + 1.5) return null; 
 
                       const hasLogo = item.logo && item.logo.trim() !== '';
 
+                      // === LOGIKA POP-UP PENCAPAIAN (SAAT ANGKA BERTAMBAH) ===
+                      const w1 = Math.floor(progress);
+                      const w2 = Math.min(w1 + 1, data.periods - 1);
+                      const t = progress - w1;
+                      const pts1 = getSafePts(item.points, w1);
+                      const pts2 = getSafePts(item.points, w2);
+                      const gain = pts2 - pts1;
+
+                      let popupNode = null;
+                      if (gain > 0 && popupEffect !== 'none') {
+                        // Efek Fade In & Fade Out berdasarkan progress transisi
+                        const popupOpacity = t < 0.2 ? t / 0.2 : (t > 0.7 ? (1 - t) / 0.3 : 1);
+                        // Efek melayang ke atas
+                        const floatY = -NODE_OUTER_R - 10 - (t * 30);
+                        
+                        let popupText = `+${gain}`;
+                        if (popupEffect === 'trophy') popupText += ' 🏆';
+                        if (popupEffect === 'star') popupText += ' ⭐';
+
+                        popupNode = (
+                          <text y={floatY} dominantBaseline="middle" textAnchor="middle" fill={item.color} fontSize={FONT_NODE * 1.5} fontWeight="900" opacity={popupOpacity} style={{ fontFamily: 'sans-serif', filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,0.3))' }}>
+                            {popupText}
+                          </text>
+                        );
+                      }
+
                       const renderLogoOnly = () => (
                         <g>
+                          {popupNode}
                           <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
                           {hasLogo ? (
                             <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath={`url(#logo-clip-${item.id})`} preserveAspectRatio="xMidYMid slice" />
@@ -488,6 +527,7 @@ export default function App() {
 
                       const renderNameOnly = () => (
                         <g>
+                          {popupNode}
                           <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
                           <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
                         </g>
@@ -497,6 +537,7 @@ export default function App() {
                         const PILL_WIDTH = NODE_OUTER_R * 3.8; 
                         return (
                           <g>
+                            {popupNode}
                             <rect x={-NODE_OUTER_R} y={-NODE_OUTER_R} width={PILL_WIDTH} height={NODE_OUTER_R * 2} fill="#FFFFFF" rx={NODE_OUTER_R} stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
                             {hasLogo ? (
                               <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath={`url(#logo-clip-${item.id})`} preserveAspectRatio="xMidYMid slice" />
@@ -678,7 +719,7 @@ export default function App() {
                         <td key={`td-${item.originalIndex}-${wIndex}`} className="px-1 py-3 text-center">
                           <input 
                             type="number" 
-                            value={item.pts !== undefined && item.points && item.points[wIndex] !== undefined ? item.points[wIndex] : ''} 
+                            value={item.points && item.points[wIndex] !== undefined ? item.points[wIndex] : ''} 
                             onChange={(e) => handlePointChange(item.originalIndex, wIndex, e.target.value)} 
                             className="w-16 p-2 border border-slate-200 rounded text-center font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
                           />
