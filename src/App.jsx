@@ -44,6 +44,9 @@ export default function App() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
 
+  // BARU: State untuk konfirmasi hapus semua data
+  const [showClearModal, setShowClearModal] = useState(false);
+
   const reqRef = useRef(null);
   const prevTime = useRef(null);
 
@@ -135,6 +138,12 @@ export default function App() {
   
   const handleRemoveItem = (itemId) => {
     setData(prev => ({ ...prev, items: prev.items.filter(t => t.id !== itemId) }));
+  };
+
+  // BARU: Fungsi untuk mengosongkan semua data
+  const handleClearAllData = () => {
+    setData(prev => ({ ...prev, items: [] }));
+    setShowClearModal(false);
   };
 
   // ----------------------------------------------------------------------------
@@ -269,6 +278,7 @@ export default function App() {
     };
 
     const generatePath = (item) => {
+      if (item.ranks.length === 0) return "";
       let d = `M ${getX(0)} ${getY(item.ranks[0] || 1)}`;
       for (let i = 0; i < data.periods - 1; i++) {
         const r1 = item.ranks[i] || 1;
@@ -359,7 +369,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-blue-600 uppercase block mb-1">Top N Filter</label>
-                  <input type="number" min="2" max={computedItems.length} value={topN} onChange={(e) => setTopN(Math.max(2, Math.min(computedItems.length, Number(e.target.value))))} className="w-full text-sm p-2 bg-blue-50 border border-blue-200 rounded-lg outline-none font-bold text-blue-700" />
+                  <input type="number" min="2" max={computedItems.length || 2} value={topN} onChange={(e) => setTopN(Math.max(2, Math.min(computedItems.length, Number(e.target.value))))} className="w-full text-sm p-2 bg-blue-50 border border-blue-200 rounded-lg outline-none font-bold text-blue-700" />
                 </div>
               </div>
             </div>
@@ -594,16 +604,39 @@ export default function App() {
           </div>
         )}
 
+        {/* === MODAL KONFIRMASI HAPUS SEMUA === */}
+        {showClearModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-slate-200 bg-red-50">
+                <h2 className="text-xl font-black text-red-800 flex items-center gap-2"><Trash2 className="text-red-600"/> Kosongkan Semua Data?</h2>
+              </div>
+              <div className="p-6 bg-slate-50">
+                <p className="text-slate-600 font-medium">Tindakan ini akan menghapus semua baris tim beserta angkanya dari tabel. Anda tidak dapat mengembalikan data yang sudah dihapus secara permanen.</p>
+              </div>
+              <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3">
+                <button onClick={() => setShowClearModal(false)} className="px-5 py-2.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">Batal</button>
+                <button onClick={handleClearAllData} className="px-5 py-2.5 font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md transition-all flex items-center gap-2">
+                  Ya, Kosongkan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="p-6 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm">
           <div>
             <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Database className="text-blue-600"/> Data Table Editor</h1>
             <p className="text-sm text-slate-500 mt-1">Input scores/points here. Ranks will be calculated automatically.</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowImportModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
+            <button onClick={() => setShowClearModal(true)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
+              <Trash2 size={18}/> Kosongkan Data
+            </button>
+            <button onClick={() => setShowImportModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
               <ClipboardPaste size={18}/> Import Excel / AI
             </button>
-            <button onClick={handleAddItem} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
+            <button onClick={handleAddItem} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
               <Plus size={18}/> Add Row
             </button>
           </div>
@@ -626,7 +659,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {computedItems.map((item) => (
+                  {computedItems.length > 0 ? computedItems.map((item) => (
                     <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
                       <td className="px-4 py-3 sticky left-0 z-20 bg-white group-hover:bg-blue-50/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center gap-3">
@@ -656,7 +689,13 @@ export default function App() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={data.periods + 2} className="px-4 py-16 text-center text-slate-400 font-bold bg-slate-50/50">
+                        Tidak ada data yang ditampilkan. Silakan "Import Excel / AI" atau klik "Add Row".
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
