@@ -44,23 +44,24 @@ export default function App() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
 
-  // BARU: State untuk konfirmasi hapus semua data
   const [showClearModal, setShowClearModal] = useState(false);
 
   const reqRef = useRef(null);
   const prevTime = useRef(null);
 
   // ----------------------------------------------------------------------------
-  // MESIN AUTO-RANK (Diperkuat: Anti-Crash Jika ID Ganda)
+  // MESIN AUTO-RANK (Kini menyematkan originalIndex ke dalam item agar ketikan stabil)
   // ----------------------------------------------------------------------------
   const computedItems = useMemo(() => {
     let newItems = JSON.parse(JSON.stringify(data.items));
-    newItems.forEach(item => item.ranks = []); 
+    newItems.forEach((item, idx) => { 
+      item.ranks = []; 
+      item.originalIndex = idx; // Simpan index asli sebagai pelacak unik
+    }); 
 
     for (let w = 0; w < data.periods; w++) {
-      // Menyimpan index asli agar tidak error saat user mengisi ID ganda di tabel
-      let leaderboard = newItems.map((item, originalIndex) => ({
-        originalIndex,
+      let leaderboard = newItems.map(item => ({
+        originalIndex: item.originalIndex,
         pts: getSafePts(item.points, w),
         name: item.name || ""
       }));
@@ -110,37 +111,40 @@ export default function App() {
     prevTime.current = undefined;
   };
 
-  // --- HANDLERS DATA EDITOR ---
+  // ----------------------------------------------------------------------------
+  // HANDLERS DATA EDITOR (Kini menggunakan Index Asli agar ketikan tidak blank)
+  // ----------------------------------------------------------------------------
   const handleUpdateGeneral = (field, value) => setData(prev => ({ ...prev, [field]: value }));
   
-  const handlePointChange = (teamId, periodIndex, value) => {
-    setData(prev => ({
-      ...prev, items: prev.items.map(t => {
-        if (t.id !== teamId) return t;
-        const newPoints = [...t.points];
-        while (newPoints.length < prev.periods) newPoints.push(newPoints[newPoints.length - 1] || 0);
-        newPoints[periodIndex] = parseInt(value) || 0;
-        return { ...t, points: newPoints };
-      })
-    }));
+  const handlePointChange = (index, periodIndex, value) => {
+    setData(prev => {
+      const newItems = [...prev.items];
+      const newPoints = [...newItems[index].points];
+      while (newPoints.length < prev.periods) newPoints.push(newPoints[newPoints.length - 1] || 0);
+      newPoints[periodIndex] = parseInt(value) || 0;
+      newItems[index] = { ...newItems[index], points: newPoints };
+      return { ...prev, items: newItems };
+    });
   };
 
-  const handleFieldChange = (teamId, field, value) => {
-    setData(prev => ({
-      ...prev, items: prev.items.map(t => t.id !== teamId ? t : { ...t, [field]: value })
-    }));
+  const handleFieldChange = (index, field, value) => {
+    setData(prev => {
+      const newItems = [...prev.items];
+      newItems[index] = { ...newItems[index], [field]: value };
+      return { ...prev, items: newItems };
+    });
   };
 
   const handleAddItem = () => {
-    const newItem = { id: `NEW${data.items.length}`, name: "New Team", color: "#3B82F6", logo: "", points: Array(data.periods).fill(0) };
+    // Mengganti Default Name dari "New Team" menjadi "Data Baru" yang lebih netral
+    const newItem = { id: `NEW`, name: "Data Baru", color: "#3B82F6", logo: "", points: Array(data.periods).fill(0) };
     setData(prev => ({ ...prev, items: [...prev.items, newItem] }));
   };
   
-  const handleRemoveItem = (itemId) => {
-    setData(prev => ({ ...prev, items: prev.items.filter(t => t.id !== itemId) }));
+  const handleRemoveItem = (index) => {
+    setData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
   };
 
-  // BARU: Fungsi untuk mengosongkan semua data
   const handleClearAllData = () => {
     setData(prev => ({ ...prev, items: [] }));
     setShowClearModal(false);
@@ -165,7 +169,7 @@ export default function App() {
         if (cols.length < 2 || cols[0].includes('---') || cols[0].toLowerCase().includes('tim') || cols[0].toLowerCase().includes('team') || cols[0].toLowerCase() === 'nama') return;
         
         const name = cols[0];
-        const id = (name.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase() || 'TIM') + i; 
+        const id = (name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase() || 'DAT'); 
         
         const presetColors = ["#EF0107", "#6CABDD", "#FDB913", "#1B458F", "#132257", "#034694", "#E30613", "#DA291C", "#F78F1E", "#0057B8", "#670E36", "#241F20", "#7A263A", "#DD0000", "#6C1D45"];
         const color = presetColors[parsedItems.length % presetColors.length];
@@ -383,7 +387,7 @@ export default function App() {
             <div className="flex-1 w-full relative">
               <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="w-full h-full absolute inset-0" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%' }}>
                 
-                {/* === 1. ZONA HEADER & FOOTER (KUNING PREMIUM) === */}
+                {/* === 1. ZONA HEADER & FOOTER === */}
                 <g>
                   <rect x="0" y="0" width={SVG_WIDTH} height={HEADER_H} fill="#FFCA28" />
                   <rect x="0" y={HEADER_H - 4} width={SVG_WIDTH} height="4" fill="#0F172A" />
@@ -407,14 +411,12 @@ export default function App() {
                   ))}
                 </g>
 
-                {/* === 3. DEFS & CLIPPING (ANTI-BOCOR) === */}
+                {/* === 3. DEFS & CLIPPING === */}
                 <defs>
                   <clipPath id="header-clip"><rect x={clipLeftX} y={HEADER_H} width={SVG_WIDTH - clipLeftX - RIGHT_HUD_W} height={X_AXIS_H} /></clipPath>
                   <clipPath id="chart-clip"><rect x={clipLeftX} y={CHART_Y_START} width={SVG_WIDTH - clipLeftX - RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
                   <clipPath id="hud-clip"><rect x={SVG_WIDTH - RIGHT_HUD_W} y={CHART_Y_START} width={RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
-                  
                   <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + getX(progress)} height="3000" /></clipPath>
-                  
                   <filter id="clean-shadow" x="-20%" y="-20%" width="140%" height="140%">
                     <feDropShadow dx="0" dy="5" stdDeviation="6" floodOpacity="0.15" floodColor="#0F172A" />
                   </filter>
@@ -432,7 +434,7 @@ export default function App() {
                   </text>
                 </g>
 
-                {/* === 4. TULISAN PERIODE / MINGGU / TAHUN === */}
+                {/* === 4. TULISAN PERIODE === */}
                 <g>
                   <rect x="0" y={HEADER_H} width={SVG_WIDTH} height={X_AXIS_H} fill="#FFFFFF" />
                   <line x1="0" y1={CHART_Y_START} x2={SVG_WIDTH} y2={CHART_Y_START} stroke="#CBD5E1" strokeWidth="2" />
@@ -467,7 +469,6 @@ export default function App() {
                         )
                       ))}
                     </g>
-                    {/* RENDERER MARKER DINAMIS */}
                     {computedItems.map((item) => {
                       const pos = getMarkerPos(item, progress);
                       if (pos.rank > safeTopN + 1.5) return null; 
@@ -564,7 +565,7 @@ export default function App() {
     return (
       <div className="flex-1 bg-slate-50 overflow-hidden flex flex-col relative" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* === MODAL MAGIC IMPORT === */}
+        {/* === MODAL MAGIC IMPORT (PROMPT AI DIPERKUAT) === */}
         {showImportModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
             <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -579,15 +580,15 @@ export default function App() {
               </div>
               <div className="p-6 flex-1 flex flex-col gap-4 bg-slate-100">
                 <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
-                  <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Copy & Paste ke ChatGPT/Gemini)</h3>
+                  <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Anti-Halusinasi & Sangat Valid)</h3>
                   <textarea 
                     readOnly 
-                    className="w-full h-32 p-3 bg-blue-50 text-slate-700 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300"
-                    value={`Tolong buatkan tabel perkembangan kumulatif data untuk 10 besar [GANTI TOPIK, cth: YouTuber Gaming] selama 12 [GANTI PERIODE, cth: Bulan] terakhir.\nSyarat mutlak:\n1. Kolom 1 = Nama Profil. Kolom 2 dst = Angka periodenya.\n2. Angka WAJIB murni tanpa titik/koma (cth: 1500000).\n3. Langsung berikan tabelnya saja.`}
+                    className="w-full h-44 p-3 bg-blue-50 text-slate-700 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300 leading-relaxed"
+                    value={`Tolong lakukan riset historis yang VALID, MENDALAM dan KOMPREHENSIF untuk mencari data tentang 10 besar [GANTI TOPIK, cth: Perusahaan Teknologi Terkaya di Dunia].\n\nSaya butuh data perkembangan kumulatif mereka selama 12 [GANTI PERIODE, cth: Tahun] terakhir. \n\nSYARAT MUTLAK:\n1. Jangan menebak angka. Pastikan Anda membandingkan data dari berbagai sumber terpercaya lokal maupun internasional sebelum menulisnya.\n2. Output HANYA berupa TABEL. Kolom 1 = Nama Entitas. Kolom 2 dst = Angka setiap periodenya.\n3. Angka WAJIB ditulis MURNI tanpa titik, tanpa koma, dan tanpa huruf (cth: 1500000).\n4. Dilarang memberikan teks penjelasan apapun selain tabel.`}
                   />
                 </div>
                 <textarea 
-                  className="w-full flex-1 min-h-[180px] p-4 rounded-xl border border-slate-300 shadow-inner focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm resize-none whitespace-pre overflow-auto"
+                  className="w-full flex-1 min-h-[160px] p-4 rounded-xl border border-slate-300 shadow-inner focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm resize-none whitespace-pre overflow-auto"
                   placeholder="Setelah AI membalas, Copy tabelnya dan Paste (Ctrl+V) di sini..."
                   value={importText}
                   onChange={(e) => { setImportText(e.target.value); setImportError(""); }}
@@ -660,31 +661,31 @@ export default function App() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {computedItems.length > 0 ? computedItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
+                    <tr key={item.originalIndex} className="hover:bg-blue-50/30 transition-colors group">
                       <td className="px-4 py-3 sticky left-0 z-20 bg-white group-hover:bg-blue-50/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center gap-3">
-                          <input type="color" value={item.color} onChange={(e) => handleFieldChange(item.id, 'color', e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer p-0" title="Team Color" />
+                          <input type="color" value={item.color} onChange={(e) => handleFieldChange(item.originalIndex, 'color', e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer p-0" title="Team Color" />
                           <div className="space-y-1 w-full max-w-[200px]">
-                            <input type="text" value={item.name} onChange={(e) => handleFieldChange(item.id, 'name', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded font-bold text-slate-800 outline-none focus:border-blue-500" placeholder="Name..." />
+                            <input type="text" value={item.name} onChange={(e) => handleFieldChange(item.originalIndex, 'name', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded font-bold text-slate-800 outline-none focus:border-blue-500" placeholder="Name..." />
                             <div className="flex gap-1">
-                              <input type="text" value={item.id} onChange={(e) => handleFieldChange(item.id, 'id', e.target.value)} className="w-16 p-1 text-xs border border-slate-200 rounded outline-none focus:border-blue-500 font-mono" placeholder="ID" maxLength={4} title="Short Initials" />
-                              <input type="text" value={item.logo || ''} onChange={(e) => handleFieldChange(item.id, 'logo', e.target.value)} className="flex-1 p-1 text-xs border border-slate-200 rounded outline-none focus:border-blue-500 font-mono" placeholder="Logo Image URL" />
+                              <input type="text" value={item.id} onChange={(e) => handleFieldChange(item.originalIndex, 'id', e.target.value)} className="w-16 p-1 text-xs border border-slate-200 rounded outline-none focus:border-blue-500 font-mono" placeholder="ID" maxLength={4} title="Short Initials" />
+                              <input type="text" value={item.logo || ''} onChange={(e) => handleFieldChange(item.originalIndex, 'logo', e.target.value)} className="flex-1 p-1 text-xs border border-slate-200 rounded outline-none focus:border-blue-500 font-mono" placeholder="Logo Image URL" />
                             </div>
                           </div>
                         </div>
                       </td>
                       {Array.from({ length: data.periods }).map((_, wIndex) => (
-                        <td key={`td-${item.id}-${wIndex}`} className="px-1 py-3 text-center">
+                        <td key={`td-${item.originalIndex}-${wIndex}`} className="px-1 py-3 text-center">
                           <input 
                             type="number" 
-                            value={item.points[wIndex] !== undefined ? item.points[wIndex] : ''} 
-                            onChange={(e) => handlePointChange(item.id, wIndex, e.target.value)} 
+                            value={item.pts !== undefined && item.points && item.points[wIndex] !== undefined ? item.points[wIndex] : ''} 
+                            onChange={(e) => handlePointChange(item.originalIndex, wIndex, e.target.value)} 
                             className="w-16 p-2 border border-slate-200 rounded text-center font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
                           />
                         </td>
                       ))}
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors" title="Delete Row">
+                        <button onClick={() => handleRemoveItem(item.originalIndex)} className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors" title="Delete Row">
                           <Trash2 size={18} />
                         </button>
                       </td>
@@ -713,7 +714,6 @@ export default function App() {
     const baseKeyword = safeTitle.toLowerCase();
     const unit = data.unitLabel.toLowerCase();
 
-    // 🎯 STRATEGI SEO VIDIQ: Generate Top 5 Targeted Keywords secara dinamis
     const topKeywords = [
       `${baseKeyword} ranking`,
       `${baseKeyword} history`,
@@ -723,12 +723,10 @@ export default function App() {
     ];
     const keywordsString = topKeywords.join(', ');
     
-    // SEO FOR SHORTS (Kata kunci disuntikkan ke paragraf pertama deskripsi)
     const shortsTitle = `EPIC ${data.title} Final Standings Animation! 🏆 #shorts`;
     const shortsDesc = `The ultimate ${unit} race for ${data.title}! Who came out on top? Watch this satisfying data animation to find out! \n\nWe tracked the ${topKeywords[0]} and ${topKeywords[1]} to show you the true ${topKeywords[2]}.\n\nDrop a comment with your favorite team! 👇\n\n#${safeTitle.replace(/\s+/g, '')} #DataVisualization #Shorts`;
     const shortsTags = `${keywordsString}, data visualization, ${unit} history, #shorts`;
 
-    // SEO FOR LONG VIDEO (Kata kunci disuntikkan ke judul dan deskripsi)
     const longTitle = `Complete ${data.title} Ranking History | ${topKeywords[4].replace(/\b\w/g, l => l.toUpperCase())}`;
     const longDesc = `Witness the dramatic journey of ${data.title}! This ${topKeywords[4]} visualizes the accumulation of ${unit} from the beginning to the end of the period.\n\nIn this video, we analyze the ${topKeywords[0]} and provide a detailed ${topKeywords[3]} so you can see exactly how the ${topKeywords[2]} performed over time.\n\nMake sure to LIKE, COMMENT, and SUBSCRIBE to ${data.footerText} for more awesome data animations!\n\n#DataVisualization #RankingHistory #${safeTitle.replace(/\s+/g, '')}`;
     const longTags = `${keywordsString}, full season animation, data animation, sports statistics, ${unit} progression, animated standings, ${data.footerText.replace('@','')}`;
@@ -743,7 +741,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* BANNER 5 KATA KUNCI UTAMA */}
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
             <h2 className="text-lg font-black text-blue-800 mb-3 flex items-center gap-2">🎯 Top 5 Targeted Keywords (Algorithm Focus)</h2>
             <div className="flex flex-wrap gap-2">
