@@ -6,8 +6,9 @@ import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, Cl
 // ============================================================================
 export const defaultData = {
   title: "TOP 10 YOUTUBERS 2024",
-  periodPrefix: "Month",
-  startPeriod: 1, 
+  periodPrefix: "Year",
+  startPeriod: 2013, 
+  periodStep: 1, // FITUR BARU: Lompatan Periode (Bisa diisi 4 untuk Piala Dunia)
   periods: 12,
   footerText: "@GlobeChart",
   unitLabel: "SUBSCRIBERS",
@@ -46,7 +47,7 @@ export default function App() {
   const [importError, setImportError] = useState("");
   const [showClearModal, setShowClearModal] = useState(false);
 
-  // Animasi Web (Engine untuk preview)
+  // Engine Animasi Web
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const reqRef = useRef(null);
@@ -86,7 +87,7 @@ export default function App() {
     return newItems;
   }, [data.items, data.periods]);
 
-  // --- ENGINE ANIMASI (WEB) ---
+  // --- LOOP ANIMASI ---
   const animate = (time) => {
     if (prevTime.current !== undefined) {
       const deltaTime = time - prevTime.current;
@@ -118,7 +119,6 @@ export default function App() {
   // HANDLERS DATA EDITOR
   // ----------------------------------------------------------------------------
   const handleUpdateGeneral = (field, value) => setData(prev => ({ ...prev, [field]: value }));
-  
   const handlePointChange = (index, periodIndex, value) => {
     setData(prev => {
       const newItems = [...prev.items];
@@ -157,7 +157,6 @@ export default function App() {
       const rows = importText.trim().split('\n');
       const parsedItems = [];
       let detectedPeriods = 0;
-      
       rows.forEach((row, i) => {
         let cleanRow = row.trim();
         if (cleanRow.startsWith('|')) cleanRow = cleanRow.substring(1);
@@ -168,12 +167,10 @@ export default function App() {
         const id = (name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase() || 'DAT'); 
         const presetColors = ["#EF0107", "#6CABDD", "#FDB913", "#1B458F", "#132257", "#034694", "#E30613", "#DA291C", "#F78F1E", "#0057B8", "#670E36", "#241F20", "#7A263A", "#DD0000", "#6C1D45"];
         const color = presetColors[parsedItems.length % presetColors.length];
-
         const rawPoints = cols.slice(1);
         if (rawPoints.length > detectedPeriods) detectedPeriods = rawPoints.length;
         parsedItems.push({ id, name, color, logo: "", rawPoints });
       });
-
       if (parsedItems.length > 0) {
         const newPeriods = Math.max(data.periods, detectedPeriods);
         const finalItems = parsedItems.map(item => {
@@ -193,16 +190,15 @@ export default function App() {
         setImportText("");
         setImportError("");
       } else {
-        setImportError("Format tidak dikenali. Pastikan Anda menyalin tabel yang berisi Nama dan Angka.");
+        setImportError("Format tidak dikenali.");
       }
     } catch (error) {
-      setImportError("Terjadi kesalahan sistem saat memproses data tabel Anda.");
+      setImportError("Terjadi kesalahan.");
     }
   };
 
-
   // ============================================================================
-  // RENDERER UI TAB PREVIEW
+  // TAB 1: RENDERER PREVIEW & KANVAS (FULL)
   // ============================================================================
   const renderPreview = () => {
     const isVertical = layout === '9:16';
@@ -219,7 +215,7 @@ export default function App() {
     const safeTopN = Math.max(topN, 2); 
     const rowHeight = CHART_HEIGHT / safeTopN; 
 
-    // Konfigurasi LINE CHART
+    // --- KONFIGURASI LINE CHART ---
     const LINE_RIGHT_HUD_W = isVertical ? 240 : 280; 
     const LINE_RANK_X = isVertical ? 80 : 120;       
     const LINE_START_X = isVertical ? 240 : 300;     
@@ -231,7 +227,7 @@ export default function App() {
     const FONT_NODE = Math.max(NODE_INNER_R * 0.6, 16); 
     const clipLeftX = LINE_START_X - (NODE_OUTER_R * 2);
 
-    // Konfigurasi BAR CHART
+    // --- KONFIGURASI BAR CHART ---
     const effectiveRowHeight = chartType === 'bar' ? Math.min(CHART_HEIGHT / safeTopN, isVertical ? 130 : 110) : rowHeight;
     const BAR_HEIGHT = effectiveRowHeight * 0.65;
     const BAR_LOGO_R = BAR_HEIGHT / 2;
@@ -245,14 +241,21 @@ export default function App() {
     const FONT_RANK = Math.min(effectiveRowHeight * 0.5, isVertical ? 45 : 50);
     const FONT_HUD  = Math.min(rowHeight * 0.5, isVertical ? 40 : 45);
     const FONT_WK   = isVertical ? 30 : 35; 
-    const FONT_TITLE= isVertical ? 45 : 60;
+    
+    // ---------------------------------------------------------------
+    // PERBAIKAN: LOGIKA AUTO-SCALING UNTUK JUDUL PANJANG
+    // ---------------------------------------------------------------
+    let baseTitleSize = isVertical ? 45 : 60;
+    let FONT_TITLE = baseTitleSize;
+    if (data.title.length > 25) FONT_TITLE = baseTitleSize * 0.8;
+    if (data.title.length > 35) FONT_TITLE = baseTitleSize * 0.65;
+    if (data.title.length > 50) FONT_TITLE = baseTitleSize * 0.5;
+
     const FONT_FOOT = isVertical ? 30 : 35;
     const PILL_H = Math.min(rowHeight * 0.7, 80);
     const PILL_R = PILL_H / 2;
 
-    const sampleLabel = data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1)}` : `${Number(data.startPeriod || 1)}`;
-    const isLongText = sampleLabel.length > 5; 
-    const VISIBLE_WEEKS = isVertical ? (isLongText ? 3 : 4) : (isLongText ? 4 : 6);
+    const VISIBLE_WEEKS = isVertical ? 4 : 6;
     const activeVisiblePeriods = Math.min(data.periods, VISIBLE_WEEKS);
     
     const LINE_SPACING = LINE_CHART_WIDTH / Math.max(activeVisiblePeriods - 1, 1);
@@ -292,9 +295,12 @@ export default function App() {
 
     const formatValue = (val) => new Intl.NumberFormat('en-US').format(Math.round(val));
 
+    // Helper: Kalkulasi Tahun Berdasarkan Period Step
+    const getPeriodValue = (index) => Number(data.startPeriod || 1) + (index * Number(data.periodStep || 1));
+    const currentPeriodProgress = Number(data.startPeriod || 1) + (Math.floor(progress) * Number(data.periodStep || 1));
+
     return (
-      <div className="flex flex-1 overflow-hidden relative" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        
+      <div className="flex flex-1 overflow-hidden relative">
         {/* PANEL PENGATURAN KIRI */}
         <div className="w-[350px] bg-white border-r border-slate-200 shadow-xl z-10 flex flex-col p-6 overflow-y-auto shrink-0">
           <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"><Sliders size={20} className="text-blue-600"/> Animation Setup</h2>
@@ -358,7 +364,8 @@ export default function App() {
               </div>
             )}
 
-            <div className="space-y-4">
+            {/* PENGATURAN KONTEN DENGAN TAMBAHAN FITUR "STEP" */}
+            <div className="space-y-4 pt-2">
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Main Title</label>
                 <input type="text" value={data.title} onChange={(e) => handleUpdateGeneral('title', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" />
@@ -366,26 +373,30 @@ export default function App() {
               
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Period Prefix</label>
-                  <input type="text" value={data.periodPrefix} onChange={(e) => handleUpdateGeneral('periodPrefix', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="WK / YR" />
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1" title="Contoh: Year, Week, Month">Prefix</label>
+                  <input type="text" value={data.periodPrefix} onChange={(e) => handleUpdateGeneral('periodPrefix', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="Year" />
                 </div>
-                <div className="col-span-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Start Num</label>
-                  <input type="number" value={data.startPeriod || 1} onChange={(e) => handleUpdateGeneral('startPeriod', parseInt(e.target.value) || 0)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="2000" />
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1" title="Tahun/Angka Mulai">Start Num</label>
+                  <input type="number" value={data.startPeriod || 1} onChange={(e) => handleUpdateGeneral('startPeriod', parseInt(e.target.value) || 0)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="1930" />
                 </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1" title="Lompatan Angka Tiap Kolom. Isi 4 untuk Piala Dunia.">Step (+)</label>
+                  <input type="number" value={data.periodStep || 1} onChange={(e) => handleUpdateGeneral('periodStep', parseInt(e.target.value) || 1)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="1" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Unit Label</label>
                   <input type="text" value={data.unitLabel} onChange={(e) => handleUpdateGeneral('unitLabel', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="PTS" />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Total Periods</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Total</label>
                   <input type="number" value={data.periods} onChange={(e) => handleUpdateGeneral('periods', parseInt(e.target.value) || 1)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-600 uppercase block mb-1">Top N Filter</label>
+                  <label className="text-[10px] font-bold text-blue-600 uppercase block mb-1">Top N</label>
                   <input type="number" min="2" max={computedItems.length || 2} value={topN} onChange={(e) => setTopN(Math.max(2, Math.min(computedItems.length, Number(e.target.value))))} className="w-full text-sm p-2 bg-blue-50 border border-blue-200 rounded-lg outline-none font-bold text-blue-700" />
                 </div>
               </div>
@@ -393,15 +404,9 @@ export default function App() {
           </div>
         </div>
 
-        {/* KANVAS PREVIEW */}
+        {/* KANVAS PREVIEW SVG (FULL RESTORED) */}
         <div className="flex-1 bg-slate-900 p-4 md:p-8 flex items-center justify-center overflow-hidden">
-          <div className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-            style={{ 
-              height: isVertical ? '95%' : '90%', 
-              width: isVertical ? 'auto' : '100%', 
-              maxWidth: isVertical ? 'none' : '1600px', 
-              aspectRatio: isVertical ? '9/16' : '16/9' 
-            }}>
+          <div className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ height: isVertical ? '95%' : '90%', width: isVertical ? 'auto' : '100%', maxWidth: isVertical ? 'none' : '1600px', aspectRatio: isVertical ? '9/16' : '16/9' }}>
             <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <rect id="dark-bg" width={SVG_WIDTH} height={SVG_HEIGHT} fill="#0F172A" />
@@ -425,12 +430,16 @@ export default function App() {
               <g>
                 <rect x="0" y="0" width={SVG_WIDTH} height={HEADER_H} fill={chartType === 'bar' ? '#1E293B' : '#FFCA28'} />
                 <rect x="0" y={HEADER_H - 4} width={SVG_WIDTH} height="4" fill="#0F172A" />
-                <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_TITLE} fontWeight="900" letterSpacing="4" style={{ fontFamily: 'sans-serif' }}>{data.title}</text>
+                {/* AUTO-SCALED TITLE */}
+                <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_TITLE} fontWeight="900" letterSpacing="1" style={{ fontFamily: 'sans-serif' }}>{data.title}</text>
                 <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height={FOOTER_H} fill={chartType === 'bar' ? '#1E293B' : '#FFCA28'} />
                 <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height="4" fill="#0F172A" />
                 <text x={SVG_WIDTH / 2} y={SVG_HEIGHT - (FOOTER_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_FOOT} fontWeight="900" letterSpacing="2" style={{ fontFamily: 'sans-serif' }}>{data.footerText}</text>
               </g>
 
+              {/* ========================================================================
+                                    MODE 1: RACING LINE CHART
+                  ======================================================================== */}
               {chartType === 'line' && (
                 <g>
                   {Array.from({ length: safeTopN }).map((_, i) => (
@@ -443,7 +452,7 @@ export default function App() {
 
                   <g clipPath="url(#chart-clip)">
                     <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#CBD5E1" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
-                      {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + Math.floor(progress)}` : `${Number(data.startPeriod || 1) + Math.floor(progress)}`}
+                      {data.periodPrefix ? `${data.periodPrefix} ${currentPeriodProgress}` : `${currentPeriodProgress}`}
                     </text>
                   </g>
 
@@ -455,7 +464,7 @@ export default function App() {
                       <g transform={`translate(${-panX}, 0)`}>
                         {Array.from({ length: data.periods }).map((_, i) => (
                           <text key={`wk-${i}`} x={LINE_START_X + (i * LINE_SPACING)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_WK} fontWeight="900">
-                            {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + i}` : `${Number(data.startPeriod || 1) + i}`}
+                            {data.periodPrefix ? `${data.periodPrefix} ${getPeriodValue(i)}` : `${getPeriodValue(i)}`}
                           </text>
                         ))}
                       </g>
@@ -548,10 +557,13 @@ export default function App() {
                 </g>
               )}
 
+              {/* ========================================================================
+                                    MODE 2: BAR CHART RACE
+                  ======================================================================== */}
               {chartType === 'bar' && (
                 <g>
                   <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
-                    {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + Math.floor(progress)}` : `${Number(data.startPeriod || 1) + Math.floor(progress)}`}
+                    {data.periodPrefix ? `${data.periodPrefix} ${currentPeriodProgress}` : `${currentPeriodProgress}`}
                   </text>
                   <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
                   
@@ -599,9 +611,9 @@ export default function App() {
   // ============================================================================
   const renderDataEditor = () => {
     return (
-      <div className="flex-1 bg-slate-50 overflow-hidden flex flex-col relative" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="flex-1 bg-slate-50 overflow-hidden flex flex-col relative">
         {showImportModal && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6">
             <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                 <div>
@@ -612,8 +624,8 @@ export default function App() {
               </div>
               <div className="p-6 flex-1 flex flex-col gap-4 bg-slate-100">
                 <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
-                  <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Versi Multi-Fungsi Mutlak)</h3>
-                  <textarea readOnly className="w-full min-h-[220px] p-3 bg-blue-50 text-slate-800 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300 leading-relaxed" value={`Berperanlah sebagai peneliti data (Data Researcher) profesional. Tolong buatkan data historis perkembangan kumulatif untuk [GANTI TOPIK: cth: 10 YouTuber Terbesar / 10 Orang Terkaya / 10 Negara Terpadat / Klasemen Akhir Liga Inggris] selama [GANTI PERIODE: cth: 12 Bulan terakhir / 10 Tahun terakhir].\n\nSYARAT MUTLAK:\n1. Berikan HANYA dalam bentuk TABEL. Kolom 1 = Nama Profil/Entitas. Kolom 2 dst = Angka periodenya.\n2. Angka WAJIB MURNI tanpa titik atau koma (contoh: 1500000, JANGAN 1.500.000).\n3. FITUR MILESTONE: Jika entitas tersebut meraih PENCAPAIAN PENTING di periode tersebut (contoh: Juara, Rekor Baru, Tembus 100 Juta), tambahkan 1 EMOJI relevan tepat di sebelah angkanya! (Contoh di tabel: 95 🏆 atau 100000 🥈 atau 50000 📉).\n4. Jangan beri teks penjelasan apapun sebelum atau sesudah tabel.`} />
+                  <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Mendukung Fitur Milestone)</h3>
+                  <textarea readOnly className="w-full h-44 p-3 bg-blue-50 text-slate-700 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300 leading-relaxed" value={`Tolong lakukan riset historis untuk 10 besar [GANTI TOPIK, cth: Tim Bola] selama 12 [GANTI PERIODE, cth: Tahun] terakhir.\n\nSYARAT MUTLAK:\n1. Output HANYA berupa TABEL. Kolom 1 = Nama Entitas. Kolom 2 dst = Angka setiap periodenya.\n2. Angka WAJIB murni tanpa titik/koma (cth: 1500000).\n3. JIKA entitas tersebut meraih PENCAPAIAN/JUARA di tahun tersebut, tambahkan Emoji relevan di sebelah angkanya! (Contoh ketikan di tabel: 95 🏆 atau 100000 🥈). \n4. Dilarang memberikan teks penjelasan apapun selain tabel.`} />
                 </div>
                 <textarea className="w-full flex-1 min-h-[160px] p-4 rounded-xl border border-slate-300 shadow-inner focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm resize-none whitespace-pre overflow-auto" placeholder="Setelah AI membalas, Copy tabelnya dan Paste (Ctrl+V) di sini..." value={importText} onChange={(e) => { setImportText(e.target.value); setImportError(""); }}></textarea>
                 {importError && <p className="text-sm text-red-600 font-bold bg-red-50 p-3 rounded border border-red-200">{importError}</p>}
@@ -627,7 +639,7 @@ export default function App() {
         )}
 
         {showClearModal && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6">
             <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="p-6 border-b border-slate-200 bg-red-50">
                 <h2 className="text-xl font-black text-red-800 flex items-center gap-2"><Trash2 className="text-red-600"/> Kosongkan Semua Data?</h2>
@@ -663,7 +675,9 @@ export default function App() {
                   <tr>
                     <th className="px-4 py-4 sticky left-0 z-20 bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Team Profile</th>
                     {Array.from({ length: data.periods }).map((_, i) => {
-                      const displayLabel = data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + i}` : `${Number(data.startPeriod || 1) + i}`;
+                      // FITUR BARU: Menampilkan header tabel berdasarkan Step (Lompatan)
+                      const currentVal = Number(data.startPeriod || 1) + (i * Number(data.periodStep || 1));
+                      const displayLabel = data.periodPrefix ? `${data.periodPrefix} ${currentVal}` : `${currentVal}`;
                       return (
                         <th key={`th-${i}`} className="px-3 py-4 text-center min-w-[100px]">{displayLabel}</th>
                       );
@@ -763,19 +777,14 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-900 overflow-hidden font-sans" style={{ minHeight: '100vh', width: '100vw', backgroundColor: '#0f172a' }}>
-      {/* TOP NAVIGATION BAR */}
-      <div className="h-16 bg-slate-900 border-b border-slate-800 flex items-center px-6 gap-4 shrink-0 shadow-md z-20">
-        <div className="text-white font-black text-xl mr-8 flex items-center gap-2 tracking-tight">
-          <MonitorPlay className="text-blue-500"/> CHART<span className="text-blue-500">STUDIO</span>
-        </div>
-        <button onClick={() => setActiveTab('preview')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'preview' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><LayoutTemplate size={18}/> Preview Animasi</button>
-        <button onClick={() => setActiveTab('editor')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Database size={18}/> Editor Tabel Data</button>
-        <button onClick={() => setActiveTab('seo')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'seo' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Video size={18}/> YouTube SEO</button>
+    <div className="flex flex-col h-screen w-full bg-slate-900 overflow-hidden font-sans">
+      <div className="h-16 bg-slate-900 border-b border-slate-800 flex items-center px-6 gap-4">
+        <div className="text-white font-black text-xl mr-8 flex items-center gap-2">CHART<span className="text-blue-500">STUDIO</span></div>
+        <button onClick={() => setActiveTab('preview')} className={`px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 ${activeTab === 'preview' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><LayoutTemplate size={18}/> Preview</button>
+        <button onClick={() => setActiveTab('editor')} className={`px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Database size={18}/> Editor</button>
+        <button onClick={() => setActiveTab('seo')} className={`px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 ${activeTab === 'seo' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Video size={18}/> YouTube SEO</button>
       </div>
-
-      {/* CONTENT AREA */}
-      <div className="flex-1 flex overflow-hidden" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="flex-1 flex overflow-hidden">
         {activeTab === 'preview' && renderPreview()}
         {activeTab === 'editor' && renderDataEditor()}
         {activeTab === 'seo' && renderSEO()}
