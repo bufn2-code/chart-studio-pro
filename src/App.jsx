@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Download, Play, Pause, RotateCcw } from 'lucide-react';
+import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Play, Pause, RotateCcw } from 'lucide-react';
 
 // ============================================================================
 // DATA BAWAAN LENGKAP
@@ -45,7 +45,6 @@ export default function App() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [showClearModal, setShowClearModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
 
   // Animasi Web (Engine untuk preview)
   const [progress, setProgress] = useState(0);
@@ -296,37 +295,11 @@ export default function App() {
     return (
       <div className="flex flex-1 overflow-hidden relative" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* === MODAL EKSPOR MP4 (REMOTION CLI GUIDE) === */}
-        {showExportModal && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
-            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><Download className="text-blue-600"/> Panduan Ekspor ke MP4</h2>
-                <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600 p-2"><X size={20}/></button>
-              </div>
-              <div className="p-6 bg-white space-y-4">
-                <p className="text-slate-600 text-sm font-medium">Aplikasi ini mendukung ekspor menggunakan teknologi <b>Remotion</b>. Untuk menghasilkan file MP4 kualitas Studio (60FPS, anti-lag, pixel-perfect), Anda bisa merendernya secara programatik di komputer lokal Anda menggunakan React.</p>
-                <div className="bg-slate-100 p-4 rounded-xl space-y-2 border border-slate-200">
-                  <p className="text-xs font-bold text-slate-500 uppercase">Perintah Render (Contoh Setup Lokal)</p>
-                  <code className="block w-full p-3 bg-slate-800 text-yellow-400 text-sm font-mono rounded-lg shadow-inner">npx remotion render src/export.jsx ChartStudio out/video.mp4</code>
-                </div>
-              </div>
-              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
-                <button onClick={() => setShowExportModal(false)} className="px-6 py-2.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all">Tutup</button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* PANEL PENGATURAN KIRI */}
         <div className="w-[350px] bg-white border-r border-slate-200 shadow-xl z-10 flex flex-col p-6 overflow-y-auto shrink-0">
           <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"><Sliders size={20} className="text-blue-600"/> Animation Setup</h2>
           
           <div className="space-y-6">
-            <button onClick={() => setShowExportModal(true)} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-black transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-              <Download size={20} /> EKSPOR KE MP4
-            </button>
-
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
               <button onClick={() => setIsPlaying(!isPlaying)} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-black transition-all shadow-md mb-2">
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />} {isPlaying ? 'PAUSE' : 'PLAY'}
@@ -639,8 +612,8 @@ export default function App() {
               </div>
               <div className="p-6 flex-1 flex flex-col gap-4 bg-slate-100">
                 <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
-                  <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Mendukung Fitur Milestone)</h3>
-                  <textarea readOnly className="w-full h-44 p-3 bg-blue-50 text-slate-700 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300 leading-relaxed" value={`Tolong lakukan riset historis untuk 10 besar [GANTI TOPIK, cth: Tim Bola] selama 12 [GANTI PERIODE, cth: Tahun] terakhir.\n\nSYARAT MUTLAK:\n1. Output HANYA berupa TABEL. Kolom 1 = Nama Entitas. Kolom 2 dst = Angka setiap periodenya.\n2. Angka WAJIB murni tanpa titik/koma (cth: 1500000).\n3. JIKA entitas tersebut meraih PENCAPAIAN/JUARA di tahun tersebut, tambahkan Emoji relevan di sebelah angkanya! (Contoh ketikan di tabel: 95 🏆 atau 100000 🥈). \n4. Dilarang memberikan teks penjelasan apapun selain tabel.`} />
+                  <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Versi Multi-Fungsi Mutlak)</h3>
+                  <textarea readOnly className="w-full min-h-[220px] p-3 bg-blue-50 text-slate-800 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300 leading-relaxed" value={`Berperanlah sebagai peneliti data (Data Researcher) profesional. Tolong buatkan data historis perkembangan kumulatif untuk [GANTI TOPIK: cth: 10 YouTuber Terbesar / 10 Orang Terkaya / 10 Negara Terpadat / Klasemen Akhir Liga Inggris] selama [GANTI PERIODE: cth: 12 Bulan terakhir / 10 Tahun terakhir].\n\nSYARAT MUTLAK:\n1. Berikan HANYA dalam bentuk TABEL. Kolom 1 = Nama Profil/Entitas. Kolom 2 dst = Angka periodenya.\n2. Angka WAJIB MURNI tanpa titik atau koma (contoh: 1500000, JANGAN 1.500.000).\n3. FITUR MILESTONE: Jika entitas tersebut meraih PENCAPAIAN PENTING di periode tersebut (contoh: Juara, Rekor Baru, Tembus 100 Juta), tambahkan 1 EMOJI relevan tepat di sebelah angkanya! (Contoh di tabel: 95 🏆 atau 100000 🥈 atau 50000 📉).\n4. Jangan beri teks penjelasan apapun sebelum atau sesudah tabel.`} />
                 </div>
                 <textarea className="w-full flex-1 min-h-[160px] p-4 rounded-xl border border-slate-300 shadow-inner focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm resize-none whitespace-pre overflow-auto" placeholder="Setelah AI membalas, Copy tabelnya dan Paste (Ctrl+V) di sini..." value={importText} onChange={(e) => { setImportText(e.target.value); setImportError(""); }}></textarea>
                 {importError && <p className="text-sm text-red-600 font-bold bg-red-50 p-3 rounded border border-red-200">{importError}</p>}
