@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Play, Pause, RotateCcw, Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp } from 'lucide-react';
+import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Download, Play, Pause, RotateCcw } from 'lucide-react';
 
 // ============================================================================
 // DATA BAWAAN LENGKAP
 // ============================================================================
-const defaultData = {
+export const defaultData = {
   title: "TOP 10 YOUTUBERS 2024",
   periodPrefix: "Month",
   startPeriod: 1, 
@@ -20,27 +20,21 @@ const defaultData = {
   ]
 };
 
-// Fungsi ekstrak angka murni
 const getSafePts = (pointsArr, index) => {
   if (!pointsArr || pointsArr.length === 0) return 0;
   let val = index < pointsArr.length ? pointsArr[index] : pointsArr[pointsArr.length - 1]; 
   return parseInt(String(val).replace(/[^0-9-]/g, ''), 10) || 0;
 };
 
-// Fungsi ekstrak emoji (Milestone)
 const getSafeEmoji = (pointsArr, index) => {
   if (!pointsArr || index >= pointsArr.length) return "";
   const val = String(pointsArr[index]);
-  const emojiOnly = val.replace(/[0-9-\s.,]/g, '').trim();
-  return emojiOnly;
+  return val.replace(/[0-9-\s.,]/g, '').trim();
 };
 
 export default function App() {
   const [data, setData] = useState(defaultData);
   const [activeTab, setActiveTab] = useState('preview'); 
-  
-  const [progress, setProgress] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [layout, setLayout] = useState('16:9');
   const [topN, setTopN] = useState(5); 
@@ -51,13 +45,17 @@ export default function App() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
+  // Animasi Web (Engine untuk preview)
+  const [progress, setProgress] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const reqRef = useRef(null);
   const prevTime = useRef(null);
 
-  // ----------------------------------------------------------------------------
+  // ============================================================================
   // MESIN AUTO-RANK 
-  // ----------------------------------------------------------------------------
+  // ============================================================================
   const computedItems = useMemo(() => {
     let newItems = JSON.parse(JSON.stringify(data.items));
     newItems.forEach((item, idx) => { 
@@ -89,7 +87,7 @@ export default function App() {
     return newItems;
   }, [data.items, data.periods]);
 
-  // --- ENGINE ANIMASI ---
+  // --- ENGINE ANIMASI (WEB) ---
   const animate = (time) => {
     if (prevTime.current !== undefined) {
       const deltaTime = time - prevTime.current;
@@ -205,7 +203,7 @@ export default function App() {
 
 
   // ============================================================================
-  // TAB 1: RENDERER PREVIEW & KANVAS
+  // RENDERER UI TAB PREVIEW
   // ============================================================================
   const renderPreview = () => {
     const isVertical = layout === '9:16';
@@ -222,7 +220,7 @@ export default function App() {
     const safeTopN = Math.max(topN, 2); 
     const rowHeight = CHART_HEIGHT / safeTopN; 
 
-    // --- KONFIGURASI LINE CHART ---
+    // Konfigurasi LINE CHART
     const LINE_RIGHT_HUD_W = isVertical ? 240 : 280; 
     const LINE_RANK_X = isVertical ? 80 : 120;       
     const LINE_START_X = isVertical ? 240 : 300;     
@@ -234,7 +232,7 @@ export default function App() {
     const FONT_NODE = Math.max(NODE_INNER_R * 0.6, 16); 
     const clipLeftX = LINE_START_X - (NODE_OUTER_R * 2);
 
-    // --- KONFIGURASI BAR CHART (RESPONSIVE AUTO-SCALE) ---
+    // Konfigurasi BAR CHART
     const effectiveRowHeight = chartType === 'bar' ? Math.min(CHART_HEIGHT / safeTopN, isVertical ? 130 : 110) : rowHeight;
     const BAR_HEIGHT = effectiveRowHeight * 0.65;
     const BAR_LOGO_R = BAR_HEIGHT / 2;
@@ -245,7 +243,6 @@ export default function App() {
     const yOffset = chartType === 'bar' ? Math.max(0, (CHART_HEIGHT - totalBarsHeight) / 2) : 0;
     const getY = (rank) => CHART_Y_START + yOffset + ((rank - 0.5) * effectiveRowHeight);
     
-    // --- FONT SETTINGS ---
     const FONT_RANK = Math.min(effectiveRowHeight * 0.5, isVertical ? 45 : 50);
     const FONT_HUD  = Math.min(rowHeight * 0.5, isVertical ? 40 : 45);
     const FONT_WK   = isVertical ? 30 : 35; 
@@ -254,24 +251,18 @@ export default function App() {
     const PILL_H = Math.min(rowHeight * 0.7, 80);
     const PILL_R = PILL_H / 2;
 
-    // --- KALKULASI KECEPATAN KAMERA (PAN X) UNTUK LINE CHART ---
-    // Dipindahkan ke atas agar bisa digunakan di dalam getMarkerPos untuk sinkronisasi mutlak
     const sampleLabel = data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1)}` : `${Number(data.startPeriod || 1)}`;
     const isLongText = sampleLabel.length > 5; 
     const VISIBLE_WEEKS = isVertical ? (isLongText ? 3 : 4) : (isLongText ? 4 : 6);
     const activeVisiblePeriods = Math.min(data.periods, VISIBLE_WEEKS);
     
-    // PERBAIKAN BUG 1: Jarak pasti antar titik dalam Line Chart
     const LINE_SPACING = LINE_CHART_WIDTH / Math.max(activeVisiblePeriods - 1, 1);
-    
     const panThreshold = Math.max(1, activeVisiblePeriods - 2); 
     const panX = Math.max(0, progress - panThreshold) * LINE_SPACING;
 
-    // --- LERP & EASING ---
     const lerp = (start, end, t) => start + (end - start) * t;
     const easeInOutSine = (t) => t * t * (3 - 2 * t);
     
-    // Fungsi pencari kordinat X, Y saat animasi berjalan
     const getMarkerPos = (item, currentProgress) => {
       const w1 = Math.floor(currentProgress);
       const w2 = Math.min(w1 + 1, data.periods - 1);
@@ -279,8 +270,6 @@ export default function App() {
       const easedT = easeInOutSine(t);
       const r1 = item.ranks[w1] || 1;
       const r2 = item.ranks[w2] || 1;
-      
-      // PERBAIKAN BUG 1: Kordinat X Line Chart menggunakan rumus LINE_SPACING agar 100% sama dengan garisnya
       const lineX = lerp(LINE_START_X + (w1 * LINE_SPACING), LINE_START_X + (w2 * LINE_SPACING), t);
 
       return { 
@@ -291,7 +280,6 @@ export default function App() {
       };
     };
 
-    // Cari nilai terbesar (max) untuk lebar Bar Chart Race
     let currentMaxVal = 1;
     if (chartType === 'bar') {
       computedItems.forEach(item => {
@@ -303,17 +291,42 @@ export default function App() {
       });
     }
 
-    const formatValue = (val) => {
-      return new Intl.NumberFormat('en-US').format(Math.round(val));
-    };
+    const formatValue = (val) => new Intl.NumberFormat('en-US').format(Math.round(val));
 
     return (
       <div className="flex flex-1 overflow-hidden relative" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        
+        {/* === MODAL EKSPOR MP4 (REMOTION CLI GUIDE) === */}
+        {showExportModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
+            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><Download className="text-blue-600"/> Panduan Ekspor ke MP4</h2>
+                <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600 p-2"><X size={20}/></button>
+              </div>
+              <div className="p-6 bg-white space-y-4">
+                <p className="text-slate-600 text-sm font-medium">Aplikasi ini mendukung ekspor menggunakan teknologi <b>Remotion</b>. Untuk menghasilkan file MP4 kualitas Studio (60FPS, anti-lag, pixel-perfect), Anda bisa merendernya secara programatik di komputer lokal Anda menggunakan React.</p>
+                <div className="bg-slate-100 p-4 rounded-xl space-y-2 border border-slate-200">
+                  <p className="text-xs font-bold text-slate-500 uppercase">Perintah Render (Contoh Setup Lokal)</p>
+                  <code className="block w-full p-3 bg-slate-800 text-yellow-400 text-sm font-mono rounded-lg shadow-inner">npx remotion render src/export.jsx ChartStudio out/video.mp4</code>
+                </div>
+              </div>
+              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
+                <button onClick={() => setShowExportModal(false)} className="px-6 py-2.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all">Tutup</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PANEL PENGATURAN KIRI */}
-        <div className="w-[350px] bg-white border-r border-slate-200 shadow-xl z-10 flex flex-col p-6 overflow-y-auto">
+        <div className="w-[350px] bg-white border-r border-slate-200 shadow-xl z-10 flex flex-col p-6 overflow-y-auto shrink-0">
           <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"><Sliders size={20} className="text-blue-600"/> Animation Setup</h2>
           
           <div className="space-y-6">
+            <button onClick={() => setShowExportModal(true)} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-black transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+              <Download size={20} /> EKSPOR KE MP4
+            </button>
+
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
               <button onClick={() => setIsPlaying(!isPlaying)} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-black transition-all shadow-md mb-2">
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />} {isPlaying ? 'PAUSE' : 'PLAY'}
@@ -323,9 +336,26 @@ export default function App() {
               </button>
             </div>
 
-            {/* PILIHAN MODEL GRAFIK */}
+            <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div>
+                <div className="flex justify-between text-xs mb-2 text-slate-600 font-bold">
+                  <span>Progress</span>
+                  <span className="text-blue-600">{Math.floor((progress / Math.max((data.periods - 1), 1)) * 100)}%</span>
+                </div>
+                <input type="range" min="0" max={Math.max(data.periods - 1, 1)} step="0.01" value={progress} onChange={(e) => { setProgress(parseFloat(e.target.value)); setIsPlaying(false); }} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+              </div>
+              <div className="pt-2">
+                <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Animation Speed</label>
+                <div className="flex gap-2">
+                  {[0.5, 1, 1.5, 2].map(s => (
+                    <button key={s} onClick={() => setSpeed(s)} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${speed === s ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>{s}x</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-3">
-              <label className="text-[11px] font-black text-blue-600 uppercase tracking-wider">M O D E L &nbsp; G R A F I K</label>
+              <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">M O D E L &nbsp; G R A F I K</label>
               <div className="flex gap-2">
                 <button onClick={() => setChartType('line')} className={`flex-1 py-3 text-xs font-bold rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${chartType === 'line' ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                   <TrendingUp size={20} /> Line Racing
@@ -354,24 +384,6 @@ export default function App() {
                 </div>
               </div>
             )}
-
-            <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <div>
-                <div className="flex justify-between text-xs mb-2 text-slate-600 font-bold">
-                  <span>Progress</span>
-                  <span className="text-blue-600">{Math.floor((progress / Math.max((data.periods - 1), 1)) * 100)}%</span>
-                </div>
-                <input type="range" min="0" max={Math.max(data.periods - 1, 1)} step="0.01" value={progress} onChange={(e) => { setProgress(parseFloat(e.target.value)); setIsPlaying(false); }} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-              </div>
-              <div className="pt-2">
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Animation Speed</label>
-                <div className="flex gap-2">
-                  {[0.5, 1, 1.5, 2].map(s => (
-                    <button key={s} onClick={() => setSpeed(s)} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${speed === s ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>{s}x</button>
-                  ))}
-                </div>
-              </div>
-            </div>
 
             <div className="space-y-4">
               <div>
@@ -408,241 +420,201 @@ export default function App() {
           </div>
         </div>
 
-        {/* KANVAS PREVIEW SVG */}
-        <div className="flex-1 bg-slate-200 p-4 md:p-8 flex items-center justify-center overflow-hidden">
-          <div className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden flex flex-col ring-1 ring-slate-300"
-            style={{ height: isVertical ? '95%' : '90%', width: isVertical ? 'auto' : '100%', maxWidth: isVertical ? 'none' : '1600px', aspectRatio: isVertical ? '9/16' : '16/9' }}>
-            <div className="flex-1 w-full relative">
-              
-              {/* --- BACKGROUND SVG UTAMA --- */}
-              <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="w-full h-full absolute inset-0" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%' }}>
-                
-                <defs>
-                  <rect id="dark-bg" width={SVG_WIDTH} height={SVG_HEIGHT} fill="#0F172A" />
-                  
-                  <filter id="clean-shadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="5" stdDeviation="6" floodOpacity="0.15" floodColor="#000000" />
-                  </filter>
-                  
-                  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                  </filter>
+        {/* KANVAS PREVIEW */}
+        <div className="flex-1 bg-slate-900 p-4 md:p-8 flex items-center justify-center overflow-hidden">
+          <div className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            style={{ 
+              height: isVertical ? '95%' : '90%', 
+              width: isVertical ? 'auto' : '100%', 
+              maxWidth: isVertical ? 'none' : '1600px', 
+              aspectRatio: isVertical ? '9/16' : '16/9' 
+            }}>
+            <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <rect id="dark-bg" width={SVG_WIDTH} height={SVG_HEIGHT} fill="#0F172A" />
+                <filter id="clean-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="5" stdDeviation="6" floodOpacity="0.15" floodColor="#000000" />
+                </filter>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                <clipPath id="line-logo-clip"><circle cx="0" cy="0" r={NODE_INNER_R} /></clipPath>
+                <clipPath id="bar-logo-clip"><circle cx="0" cy="0" r={BAR_LOGO_R} /></clipPath>
+                <clipPath id="header-clip"><rect x={clipLeftX} y={HEADER_H} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={X_AXIS_H} /></clipPath>
+                <clipPath id="chart-clip"><rect x={clipLeftX} y={CHART_Y_START} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
+                <clipPath id="hud-clip"><rect x={SVG_WIDTH - LINE_RIGHT_HUD_W} y={CHART_Y_START} width={LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
+                <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + LINE_START_X + (progress * LINE_SPACING)} height="3000" /></clipPath>
+              </defs>
 
-                  {/* Clip-Path Universal Anti-Bocor untuk Semua Logo */}
-                  <clipPath id="line-logo-clip">
-                    <circle cx="0" cy="0" r={NODE_INNER_R} />
-                  </clipPath>
-                  
-                  <clipPath id="bar-logo-clip">
-                    <circle cx="0" cy="0" r={BAR_LOGO_R} />
-                  </clipPath>
+              {chartType === 'bar' ? <use href="#dark-bg" /> : <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="#FFFFFF" />}
 
-                  {/* Clip-Path Untuk Tampilan Sumbu */}
-                  <clipPath id="header-clip"><rect x={clipLeftX} y={HEADER_H} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={X_AXIS_H} /></clipPath>
-                  <clipPath id="chart-clip"><rect x={clipLeftX} y={CHART_Y_START} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
-                  <clipPath id="hud-clip"><rect x={SVG_WIDTH - LINE_RIGHT_HUD_W} y={CHART_Y_START} width={LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
-                  
-                  {/* Clip-Path yang memastikan batas kanan dan kiri sempurna */}
-                  <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + LINE_START_X + (progress * LINE_SPACING)} height="3000" /></clipPath>
-                </defs>
+              <g>
+                <rect x="0" y="0" width={SVG_WIDTH} height={HEADER_H} fill={chartType === 'bar' ? '#1E293B' : '#FFCA28'} />
+                <rect x="0" y={HEADER_H - 4} width={SVG_WIDTH} height="4" fill="#0F172A" />
+                <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_TITLE} fontWeight="900" letterSpacing="4" style={{ fontFamily: 'sans-serif' }}>{data.title}</text>
+                <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height={FOOTER_H} fill={chartType === 'bar' ? '#1E293B' : '#FFCA28'} />
+                <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height="4" fill="#0F172A" />
+                <text x={SVG_WIDTH / 2} y={SVG_HEIGHT - (FOOTER_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_FOOT} fontWeight="900" letterSpacing="2" style={{ fontFamily: 'sans-serif' }}>{data.footerText}</text>
+              </g>
 
-                {/* Latar Belakang Berubah Otomatis */}
-                {chartType === 'bar' ? <use href="#dark-bg" /> : <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="#FFFFFF" />}
-
-                {/* === ZONA HEADER & FOOTER === */}
+              {chartType === 'line' && (
                 <g>
-                  <rect x="0" y="0" width={SVG_WIDTH} height={HEADER_H} fill={chartType === 'bar' ? '#1E293B' : '#FFCA28'} />
-                  <rect x="0" y={HEADER_H - 4} width={SVG_WIDTH} height="4" fill="#0F172A" />
-                  <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_TITLE} fontWeight="900" letterSpacing="4" style={{ fontFamily: 'sans-serif' }}>{data.title}</text>
-                  
-                  <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height={FOOTER_H} fill={chartType === 'bar' ? '#1E293B' : '#FFCA28'} />
-                  <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height="4" fill="#0F172A" />
-                  <text x={SVG_WIDTH / 2} y={SVG_HEIGHT - (FOOTER_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_FOOT} fontWeight="900" letterSpacing="2" style={{ fontFamily: 'sans-serif' }}>{data.footerText}</text>
-                </g>
-
-
-                {/* ========================================================================
-                                      MODE 1: RACING LINE CHART
-                    ======================================================================== */}
-                {chartType === 'line' && (
-                  <g>
-                    {/* Background Grid (Lebih dulu dari Watermark agar tidak menutupi) */}
-                    {Array.from({ length: safeTopN }).map((_, i) => (
-                      <g key={`line-bg-${i}`}>
-                        {i % 2 === 0 && <rect x="0" y={getY(i + 1) - (effectiveRowHeight / 2)} width={SVG_WIDTH} height={effectiveRowHeight} fill="#F8FAFC" />}
-                        <line x1="0" y1={getY(i + 1) + (effectiveRowHeight / 2)} x2={SVG_WIDTH} y2={getY(i + 1) + (effectiveRowHeight / 2)} stroke="#E2E8F0" strokeWidth="2" />
-                        <text x={LINE_RANK_X} y={getY(i + 1)} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_RANK} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>{i + 1}</text>
-                      </g>
-                    ))}
-
-                    {/* PERBAIKAN BUG 2: WATERMARK TAHUN LINE CHART (Sekarang ada di atas Background Grid!) */}
-                    <g clipPath="url(#chart-clip)">
-                      <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#CBD5E1" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
-                        {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + Math.floor(progress)}` : `${Number(data.startPeriod || 1) + Math.floor(progress)}`}
-                      </text>
+                  {Array.from({ length: safeTopN }).map((_, i) => (
+                    <g key={`line-bg-${i}`}>
+                      {i % 2 === 0 && <rect x="0" y={getY(i + 1) - (effectiveRowHeight / 2)} width={SVG_WIDTH} height={effectiveRowHeight} fill="#F8FAFC" />}
+                      <line x1="0" y1={getY(i + 1) + (effectiveRowHeight / 2)} x2={SVG_WIDTH} y2={getY(i + 1) + (effectiveRowHeight / 2)} stroke="#E2E8F0" strokeWidth="2" />
+                      <text x={LINE_RANK_X} y={getY(i + 1)} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_RANK} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>{i + 1}</text>
                     </g>
+                  ))}
 
-                    {/* Tulisan X-Axis Header */}
-                    <g>
-                      <rect x="0" y={HEADER_H} width={SVG_WIDTH} height={X_AXIS_H} fill="#FFFFFF" />
-                      <line x1="0" y1={CHART_Y_START} x2={SVG_WIDTH} y2={CHART_Y_START} stroke="#CBD5E1" strokeWidth="2" />
-                      <text x={SVG_WIDTH - (LINE_RIGHT_HUD_W / 2)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
-                      <g clipPath="url(#header-clip)">
-                        <g transform={`translate(${-panX}, 0)`}>
-                          {Array.from({ length: data.periods }).map((_, i) => (
-                            <text key={`wk-${i}`} x={LINE_START_X + (i * LINE_SPACING)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_WK} fontWeight="900">
-                              {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + i}` : `${Number(data.startPeriod || 1) + i}`}
-                            </text>
-                          ))}
-                        </g>
-                      </g>
-                    </g>
-
-                    <g clipPath="url(#chart-clip)">
-                      <g transform={`translate(${-panX}, 0)`}>
-                        {/* Garis vertikal penanda tahun/minggu */}
-                        {Array.from({ length: data.periods }).map((_, i) => (
-                          <line key={`grid-x-${i}`} x1={LINE_START_X + (i * LINE_SPACING)} y1={CHART_Y_START} x2={LINE_START_X + (i * LINE_SPACING)} y2={SVG_HEIGHT - FOOTER_H} stroke="#CBD5E1" strokeWidth="2" strokeDasharray="6 6" />
-                        ))}
-                        
-                        <g clipPath="url(#reveal-clip)">
-                          {/* Garis Jalan */}
-                          {computedItems.map((item) => {
-                            if (item.ranks.length === 0) return null;
-                            let d = `M ${LINE_START_X} ${getY(item.ranks[0] || 1)}`;
-                            for (let i = 0; i < data.periods - 1; i++) {
-                              const x0 = LINE_START_X + (i * LINE_SPACING), y0 = getY(item.ranks[i] || 1);
-                              const x1 = LINE_START_X + ((i+1) * LINE_SPACING), y1 = getY(item.ranks[i+1] || 1);
-                              const dx = (x1 - x0) / 2;
-                              d += ` C ${x0 + dx} ${y0}, ${x1 - dx} ${y1}, ${x1} ${y1}`;
-                            }
-                            return Math.min(...(item.ranks.length > 0 ? item.ranks : [1])) <= safeTopN && (
-                              <path key={`path-${item.id}`} d={d} fill="none" stroke={item.color} strokeWidth={LINE_WIDTH} strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
-                            );
-                          })}
-                          
-                          {/* Milestone (Emoji Sejarah yang ditinggalkan di garis) */}
-                          {computedItems.map((item) => item.points.map((pt, pIdx) => {
-                            const emoji = getSafeEmoji(item.points, pIdx);
-                            if (!emoji) return null; 
-                            return (
-                              <g key={`ms-${item.id}-${pIdx}`} transform={`translate(${LINE_START_X + (pIdx * LINE_SPACING)}, ${getY(item.ranks[pIdx] || 1)})`}>
-                                <circle r={NODE_OUTER_R * 0.7} fill="#FFFFFF" stroke={item.color} strokeWidth="3" />
-                                <text y="2" dominantBaseline="middle" textAnchor="middle" fontSize={NODE_OUTER_R * 0.7}>{emoji}</text>
-                              </g>
-                            );
-                          }))}
-                        </g>
-
-                        {/* PERBAIKAN BUG 1: LOGO LINE CHART DIJAMIN 100% MENEMPEL DI UJUNG GARIS */}
-                        {computedItems.map((item) => {
-                          const pos = getMarkerPos(item, progress);
-                          if (pos.rank > safeTopN + 1.5) return null; 
-                          const hasLogo = item.logo && item.logo.trim() !== '';
-                          
-                          return (
-                            <g key={`marker-${item.id}`} transform={`translate(${pos.x}, ${pos.y})`}>
-                              {markerStyle === 'logo' && (
-                                <g>
-                                  <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
-                                  {hasLogo ? <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath="url(#line-logo-clip)" preserveAspectRatio="xMidYMid slice" /> : <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>}
-                                </g>
-                              )}
-                              {markerStyle === 'name' && (
-                                <g>
-                                  <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
-                                  <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
-                                </g>
-                              )}
-                              {markerStyle === 'both' && (
-                                <g>
-                                  <rect x={-NODE_OUTER_R} y={-NODE_OUTER_R} width={NODE_OUTER_R * 3.8} height={NODE_OUTER_R * 2} fill="#FFFFFF" rx={NODE_OUTER_R} stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
-                                  {hasLogo ? <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath="url(#line-logo-clip)" preserveAspectRatio="xMidYMid slice" /> : <circle cx="0" cy="0" r={NODE_INNER_R} fill={item.color} />}
-                                  <text x={NODE_OUTER_R * 1.3} y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE * 1.1} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
-                                </g>
-                              )}
-                            </g>
-                          );
-                        })}
-                      </g>
-                    </g>
-
-                    {/* HUD Kotak Skor Kanan */}
-                    <g>
-                      <rect x={SVG_WIDTH - LINE_RIGHT_HUD_W} y={CHART_Y_START} width={LINE_RIGHT_HUD_W} height={CHART_HEIGHT} fill="#F8FAFC" />
-                      <line x1={SVG_WIDTH - LINE_RIGHT_HUD_W} y1={HEADER_H} x2={SVG_WIDTH - LINE_RIGHT_HUD_W} y2={SVG_HEIGHT - FOOTER_H} stroke="#CBD5E1" strokeWidth="2" />
-                      <g clipPath="url(#hud-clip)">
-                        {computedItems.map((item) => {
-                          const pos = getMarkerPos(item, progress);
-                          if (pos.rank > safeTopN + 1.5) return null; 
-                          return (
-                            <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - LINE_RIGHT_HUD_W}, ${pos.y})`}>
-                              <rect x="30" y={-PILL_H / 2} width={LINE_RIGHT_HUD_W - 60} height={PILL_H} fill="#FFFFFF" rx={PILL_R} stroke={item.color} strokeWidth="3" filter="url(#clean-shadow)" />
-                              <text x={LINE_RIGHT_HUD_W / 2} y="0" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_HUD} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
-                                {formatValue(pos.val)}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </g>
-                    </g>
-                  </g>
-                )}
-
-
-                {/* ========================================================================
-                                      MODE 2: BAR CHART RACE
-                    ======================================================================== */}
-                {chartType === 'bar' && (
-                  <g>
-                    {/* WATERMARK TAHUN BAR CHART */}
-                    <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
+                  <g clipPath="url(#chart-clip)">
+                    <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#CBD5E1" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
                       {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + Math.floor(progress)}` : `${Number(data.startPeriod || 1) + Math.floor(progress)}`}
                     </text>
+                  </g>
 
-                    <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
-                    
-                    {computedItems.map((item) => {
-                      const pos = getMarkerPos(item, progress);
-                      if (pos.rank > safeTopN + 1) return null; 
-                      
-                      const hasLogo = item.logo && item.logo.trim() !== '';
-                      const barWidth = currentMaxVal === 0 ? 0 : Math.max(10, (pos.val / currentMaxVal) * BAR_MAX_WIDTH);
-                      const currentEmoji = getSafeEmoji(item.points, Math.floor(progress));
-
-                      return (
-                        <g key={`bar-${item.id}`} transform={`translate(${BAR_START_X}, ${pos.y})`} style={{ transition: 'opacity 0.2s ease-in-out' }} opacity={pos.rank > safeTopN ? Math.max(0, 1 - (pos.rank - safeTopN)) : 1}>
-                          
-                          <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill={item.color} rx={BAR_HEIGHT / 2} opacity="0.9" />
-                          
-                          {barWidth > 150 && (
-                            <text x={BAR_HEIGHT / 1.5} y="3" dominantBaseline="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.5} fontWeight="900" style={{ fontFamily: 'sans-serif', filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,0.6))' }}>
-                              {item.name || item.id}
-                            </text>
-                          )}
-
-                          <text x={barWidth + 20} y="3" dominantBaseline="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.8} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
-                            {formatValue(pos.val)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
+                  <g>
+                    <rect x="0" y={HEADER_H} width={SVG_WIDTH} height={X_AXIS_H} fill="#FFFFFF" />
+                    <line x1="0" y1={CHART_Y_START} x2={SVG_WIDTH} y2={CHART_Y_START} stroke="#CBD5E1" strokeWidth="2" />
+                    <text x={SVG_WIDTH - (LINE_RIGHT_HUD_W / 2)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
+                    <g clipPath="url(#header-clip)">
+                      <g transform={`translate(${-panX}, 0)`}>
+                        {Array.from({ length: data.periods }).map((_, i) => (
+                          <text key={`wk-${i}`} x={LINE_START_X + (i * LINE_SPACING)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_WK} fontWeight="900">
+                            {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + i}` : `${Number(data.startPeriod || 1) + i}`}
                           </text>
+                        ))}
+                      </g>
+                    </g>
+                  </g>
 
-                          <g transform={`translate(${-BAR_LOGO_R - 15}, 0)`}>
-                            <circle cx="0" cy="0" r={BAR_LOGO_R} fill="#1E293B" stroke={item.color} strokeWidth="4" filter="url(#clean-shadow)" />
-                            {hasLogo ? (
-                              <image href={item.logo} x={-BAR_LOGO_R} y={-BAR_LOGO_R} height={BAR_LOGO_R * 2} width={BAR_LOGO_R * 2} clipPath="url(#bar-logo-clip)" preserveAspectRatio="xMidYMid slice" />
-                            ) : (
-                              <text x="0" y="3" dominantBaseline="middle" textAnchor="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.5} fontWeight="900">{item.id}</text>
+                  <g clipPath="url(#chart-clip)">
+                    <g transform={`translate(${-panX}, 0)`}>
+                      {Array.from({ length: data.periods }).map((_, i) => (
+                        <line key={`grid-x-${i}`} x1={LINE_START_X + (i * LINE_SPACING)} y1={CHART_Y_START} x2={LINE_START_X + (i * LINE_SPACING)} y2={SVG_HEIGHT - FOOTER_H} stroke="#CBD5E1" strokeWidth="2" strokeDasharray="6 6" />
+                      ))}
+                      
+                      <g clipPath="url(#reveal-clip)">
+                        {computedItems.map((item) => {
+                          if (item.ranks.length === 0) return null;
+                          let d = `M ${LINE_START_X} ${getY(item.ranks[0] || 1)}`;
+                          for (let i = 0; i < data.periods - 1; i++) {
+                            const x0 = LINE_START_X + (i * LINE_SPACING), y0 = getY(item.ranks[i] || 1);
+                            const x1 = LINE_START_X + ((i+1) * LINE_SPACING), y1 = getY(item.ranks[i+1] || 1);
+                            const dx = (x1 - x0) / 2;
+                            d += ` C ${x0 + dx} ${y0}, ${x1 - dx} ${y1}, ${x1} ${y1}`;
+                          }
+                          return Math.min(...(item.ranks.length > 0 ? item.ranks : [1])) <= safeTopN && (
+                            <path key={`path-${item.id}`} d={d} fill="none" stroke={item.color} strokeWidth={LINE_WIDTH} strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+                          );
+                        })}
+                        
+                        {computedItems.map((item) => item.points.map((pt, pIdx) => {
+                          const emoji = getSafeEmoji(item.points, pIdx);
+                          if (!emoji) return null; 
+                          return (
+                            <g key={`ms-${item.id}-${pIdx}`} transform={`translate(${LINE_START_X + (pIdx * LINE_SPACING)}, ${getY(item.ranks[pIdx] || 1)})`}>
+                              <circle r={NODE_OUTER_R * 0.7} fill="#FFFFFF" stroke={item.color} strokeWidth="3" />
+                              <text y="2" dominantBaseline="middle" textAnchor="middle" fontSize={NODE_OUTER_R * 0.7}>{emoji}</text>
+                            </g>
+                          );
+                        }))}
+                      </g>
+
+                      {computedItems.map((item) => {
+                        const pos = getMarkerPos(item, progress);
+                        if (pos.rank > safeTopN + 1.5) return null; 
+                        const hasLogo = item.logo && item.logo.trim() !== '';
+                        
+                        return (
+                          <g key={`marker-${item.id}`} transform={`translate(${pos.x}, ${pos.y})`}>
+                            {markerStyle === 'logo' && (
+                              <g>
+                                <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
+                                {hasLogo ? <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath="url(#line-logo-clip)" preserveAspectRatio="xMidYMid slice" /> : <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>}
+                              </g>
+                            )}
+                            {markerStyle === 'name' && (
+                              <g>
+                                <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
+                                <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
+                              </g>
+                            )}
+                            {markerStyle === 'both' && (
+                              <g>
+                                <rect x={-NODE_OUTER_R} y={-NODE_OUTER_R} width={NODE_OUTER_R * 3.8} height={NODE_OUTER_R * 2} fill="#FFFFFF" rx={NODE_OUTER_R} stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
+                                {hasLogo ? <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath="url(#line-logo-clip)" preserveAspectRatio="xMidYMid slice" /> : <circle cx="0" cy="0" r={NODE_INNER_R} fill={item.color} />}
+                                <text x={NODE_OUTER_R * 1.3} y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE * 1.1} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
+                              </g>
                             )}
                           </g>
-
-                        </g>
-                      );
-                    })}
+                        );
+                      })}
+                    </g>
                   </g>
-                )}
 
-              </svg>
-            </div>
+                  <g>
+                    <rect x={SVG_WIDTH - LINE_RIGHT_HUD_W} y={CHART_Y_START} width={LINE_RIGHT_HUD_W} height={CHART_HEIGHT} fill="#F8FAFC" />
+                    <line x1={SVG_WIDTH - LINE_RIGHT_HUD_W} y1={HEADER_H} x2={SVG_WIDTH - LINE_RIGHT_HUD_W} y2={SVG_HEIGHT - FOOTER_H} stroke="#CBD5E1" strokeWidth="2" />
+                    <g clipPath="url(#hud-clip)">
+                      {computedItems.map((item) => {
+                        const pos = getMarkerPos(item, progress);
+                        if (pos.rank > safeTopN + 1.5) return null; 
+                        return (
+                          <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - LINE_RIGHT_HUD_W}, ${pos.y})`}>
+                            <rect x="30" y={-PILL_H / 2} width={LINE_RIGHT_HUD_W - 60} height={PILL_H} fill="#FFFFFF" rx={PILL_R} stroke={item.color} strokeWidth="3" filter="url(#clean-shadow)" />
+                            <text x={LINE_RIGHT_HUD_W / 2} y="0" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_HUD} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
+                              {formatValue(pos.val)}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </g>
+                  </g>
+                </g>
+              )}
+
+              {chartType === 'bar' && (
+                <g>
+                  <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
+                    {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + Math.floor(progress)}` : `${Number(data.startPeriod || 1) + Math.floor(progress)}`}
+                  </text>
+                  <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
+                  
+                  {computedItems.map((item) => {
+                    const pos = getMarkerPos(item, progress);
+                    if (pos.rank > safeTopN + 1) return null; 
+                    
+                    const hasLogo = item.logo && item.logo.trim() !== '';
+                    const barWidth = currentMaxVal === 0 ? 0 : Math.max(10, (pos.val / currentMaxVal) * BAR_MAX_WIDTH);
+                    const currentEmoji = getSafeEmoji(item.points, Math.floor(progress));
+
+                    return (
+                      <g key={`bar-${item.id}`} transform={`translate(${BAR_START_X}, ${pos.y})`} style={{ transition: 'opacity 0.2s ease-in-out' }} opacity={pos.rank > safeTopN ? Math.max(0, 1 - (pos.rank - safeTopN)) : 1}>
+                        <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill={item.color} rx={BAR_HEIGHT / 2} opacity="0.9" />
+                        {barWidth > 150 && (
+                          <text x={BAR_HEIGHT / 1.5} y="3" dominantBaseline="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.5} fontWeight="900" style={{ fontFamily: 'sans-serif', filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,0.6))' }}>
+                            {item.name || item.id}
+                          </text>
+                        )}
+                        <text x={barWidth + 20} y="3" dominantBaseline="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.8} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
+                          {formatValue(pos.val)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
+                        </text>
+                        <g transform={`translate(${-BAR_LOGO_R - 15}, 0)`}>
+                          <circle cx="0" cy="0" r={BAR_LOGO_R} fill="#1E293B" stroke={item.color} strokeWidth="4" filter="url(#clean-shadow)" />
+                          {hasLogo ? (
+                            <image href={item.logo} x={-BAR_LOGO_R} y={-BAR_LOGO_R} height={BAR_LOGO_R * 2} width={BAR_LOGO_R * 2} clipPath="url(#bar-logo-clip)" preserveAspectRatio="xMidYMid slice" />
+                          ) : (
+                            <text x="0" y="3" dominantBaseline="middle" textAnchor="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.5} fontWeight="900">{item.id}</text>
+                          )}
+                        </g>
+                      </g>
+                    );
+                  })}
+                </g>
+              )}
+            </svg>
           </div>
         </div>
       </div>
@@ -655,8 +627,6 @@ export default function App() {
   const renderDataEditor = () => {
     return (
       <div className="flex-1 bg-slate-50 overflow-hidden flex flex-col relative" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        
-        {/* === MODAL MAGIC IMPORT === */}
         {showImportModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
             <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -665,38 +635,24 @@ export default function App() {
                   <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><ClipboardPaste className="text-emerald-600"/> Import Data Cepat (AI / Excel)</h2>
                   <p className="text-sm text-slate-500 mt-1">Copy tabel dari ChatGPT, Gemini, atau Excel lalu paste ke kotak di bawah ini.</p>
                 </div>
-                <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 p-2 rounded-full transition-all">
-                  <X size={20} />
-                </button>
+                <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 p-2 rounded-full transition-all"><X size={20} /></button>
               </div>
               <div className="p-6 flex-1 flex flex-col gap-4 bg-slate-100">
                 <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
                   <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Mendukung Fitur Milestone)</h3>
-                  <textarea 
-                    readOnly 
-                    className="w-full h-44 p-3 bg-blue-50 text-slate-700 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300 leading-relaxed"
-                    value={`Tolong lakukan riset historis untuk 10 besar [GANTI TOPIK, cth: Tim Bola] selama 12 [GANTI PERIODE, cth: Tahun] terakhir.\n\nSYARAT MUTLAK:\n1. Output HANYA berupa TABEL. Kolom 1 = Nama Entitas. Kolom 2 dst = Angka setiap periodenya.\n2. Angka WAJIB murni tanpa titik/koma (cth: 1500000).\n3. JIKA entitas tersebut meraih PENCAPAIAN/JUARA di tahun tersebut, tambahkan Emoji relevan di sebelah angkanya! (Contoh ketikan di tabel: 95 🏆 atau 100000 🥈). \n4. Dilarang memberikan teks penjelasan apapun selain tabel.`}
-                  />
+                  <textarea readOnly className="w-full h-44 p-3 bg-blue-50 text-slate-700 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300 leading-relaxed" value={`Tolong lakukan riset historis untuk 10 besar [GANTI TOPIK, cth: Tim Bola] selama 12 [GANTI PERIODE, cth: Tahun] terakhir.\n\nSYARAT MUTLAK:\n1. Output HANYA berupa TABEL. Kolom 1 = Nama Entitas. Kolom 2 dst = Angka setiap periodenya.\n2. Angka WAJIB murni tanpa titik/koma (cth: 1500000).\n3. JIKA entitas tersebut meraih PENCAPAIAN/JUARA di tahun tersebut, tambahkan Emoji relevan di sebelah angkanya! (Contoh ketikan di tabel: 95 🏆 atau 100000 🥈). \n4. Dilarang memberikan teks penjelasan apapun selain tabel.`} />
                 </div>
-                <textarea 
-                  className="w-full flex-1 min-h-[160px] p-4 rounded-xl border border-slate-300 shadow-inner focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm resize-none whitespace-pre overflow-auto"
-                  placeholder="Setelah AI membalas, Copy tabelnya dan Paste (Ctrl+V) di sini..."
-                  value={importText}
-                  onChange={(e) => { setImportText(e.target.value); setImportError(""); }}
-                ></textarea>
+                <textarea className="w-full flex-1 min-h-[160px] p-4 rounded-xl border border-slate-300 shadow-inner focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm resize-none whitespace-pre overflow-auto" placeholder="Setelah AI membalas, Copy tabelnya dan Paste (Ctrl+V) di sini..." value={importText} onChange={(e) => { setImportText(e.target.value); setImportError(""); }}></textarea>
                 {importError && <p className="text-sm text-red-600 font-bold bg-red-50 p-3 rounded border border-red-200">{importError}</p>}
               </div>
               <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3">
                 <button onClick={() => setShowImportModal(false)} className="px-6 py-2.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">Batal</button>
-                <button onClick={handleImportData} className="px-6 py-2.5 font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-md transition-all flex items-center gap-2">
-                  <Database size={18}/> Proses & Timpa Data
-                </button>
+                <button onClick={handleImportData} className="px-6 py-2.5 font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-md transition-all flex items-center gap-2"><Database size={18}/> Proses & Timpa Data</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* === MODAL KONFIRMASI HAPUS SEMUA === */}
         {showClearModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
             <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -708,9 +664,7 @@ export default function App() {
               </div>
               <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3">
                 <button onClick={() => setShowClearModal(false)} className="px-5 py-2.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">Batal</button>
-                <button onClick={handleClearAllData} className="px-5 py-2.5 font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md transition-all flex items-center gap-2">
-                  Ya, Kosongkan
-                </button>
+                <button onClick={handleClearAllData} className="px-5 py-2.5 font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md transition-all flex items-center gap-2">Ya, Kosongkan</button>
               </div>
             </div>
           </div>
@@ -722,15 +676,9 @@ export default function App() {
             <p className="text-sm text-slate-500 mt-1">Ketik angka biasa, ATAU ketik Angka dan Emoji (cth: "95 🏆") untuk membuat penanda sejarah!</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowClearModal(true)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
-              <Trash2 size={18}/> Kosongkan Data
-            </button>
-            <button onClick={() => setShowImportModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
-              <ClipboardPaste size={18}/> Import Excel / AI
-            </button>
-            <button onClick={handleAddItem} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
-              <Plus size={18}/> Add Row
-            </button>
+            <button onClick={() => setShowClearModal(true)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all"><Trash2 size={18}/> Kosongkan Data</button>
+            <button onClick={() => setShowImportModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all"><ClipboardPaste size={18}/> Import Excel / AI</button>
+            <button onClick={handleAddItem} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all"><Plus size={18}/> Add Row</button>
           </div>
         </div>
 
@@ -767,26 +715,16 @@ export default function App() {
                       </td>
                       {Array.from({ length: data.periods }).map((_, wIndex) => (
                         <td key={`td-${item.originalIndex}-${wIndex}`} className="px-1 py-3 text-center">
-                          <input 
-                            type="text" 
-                            value={item.points && item.points[wIndex] !== undefined ? item.points[wIndex] : ''} 
-                            onChange={(e) => handlePointChange(item.originalIndex, wIndex, e.target.value)} 
-                            className="w-full min-w-[80px] p-2 border border-slate-200 rounded text-center font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                            placeholder="Cth: 95 🏆"
-                          />
+                          <input type="text" value={item.points && item.points[wIndex] !== undefined ? item.points[wIndex] : ''} onChange={(e) => handlePointChange(item.originalIndex, wIndex, e.target.value)} className="w-full min-w-[80px] p-2 border border-slate-200 rounded text-center font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="Cth: 95 🏆" />
                         </td>
                       ))}
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => handleRemoveItem(item.originalIndex)} className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors" title="Delete Row">
-                          <Trash2 size={18} />
-                        </button>
+                        <button onClick={() => handleRemoveItem(item.originalIndex)} className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors" title="Delete Row"><Trash2 size={18} /></button>
                       </td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={data.periods + 2} className="px-4 py-16 text-center text-slate-400 font-bold bg-slate-50/50">
-                        Tidak ada data yang ditampilkan. Silakan "Import Excel / AI" atau klik "Add Row".
-                      </td>
+                      <td colSpan={data.periods + 2} className="px-4 py-16 text-center text-slate-400 font-bold bg-slate-50/50">Tidak ada data yang ditampilkan. Silakan "Import Excel / AI" atau klik "Add Row".</td>
                     </tr>
                   )}
                 </tbody>
@@ -806,13 +744,7 @@ export default function App() {
     const baseKeyword = safeTitle.toLowerCase();
     const unit = data.unitLabel.toLowerCase();
 
-    const topKeywords = [
-      `${baseKeyword} ranking`,
-      `${baseKeyword} history`,
-      `top ${baseKeyword}`,
-      `${baseKeyword} ${unit} comparison`,
-      `animated bar chart race`
-    ];
+    const topKeywords = [`${baseKeyword} ranking`, `${baseKeyword} history`, `top ${baseKeyword}`, `${baseKeyword} ${unit} comparison`, `animated bar chart race`];
     const keywordsString = topKeywords.join(', ');
     
     const shortsTitle = `EPIC ${data.title} Final Standings Animation! 🏆 #shorts`;
@@ -832,50 +764,24 @@ export default function App() {
               <p className="mt-2 text-red-100 text-lg">Optimized with Top 5 Keywords strategy for maximum algorithm reach.</p>
             </div>
           </div>
-
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
             <h2 className="text-lg font-black text-blue-800 mb-3 flex items-center gap-2">🎯 Top 5 Targeted Keywords (Algorithm Focus)</h2>
             <div className="flex flex-wrap gap-2">
-              {topKeywords.map((kw, i) => (
-                <span key={i} className="px-3 py-1 bg-white border border-blue-300 text-blue-700 font-bold text-sm rounded-full shadow-sm">
-                  {kw}
-                </span>
-              ))}
+              {topKeywords.map((kw, i) => <span key={i} className="px-3 py-1 bg-white border border-blue-300 text-blue-700 font-bold text-sm rounded-full shadow-sm">{kw}</span>)}
             </div>
-            <p className="text-xs text-blue-600 mt-3 font-medium">*These keywords are automatically injected into the first two lines of your descriptions and placed first in your tags.</p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6">
               <h2 className="text-xl font-black text-slate-800 border-b pb-4">📱 For YouTube Shorts</h2>
-              <div>
-                <label className="block text-sm font-black text-slate-500 mb-2">Video Title</label>
-                <div className="p-4 bg-slate-100 rounded-xl font-bold text-slate-700 border border-slate-200">{shortsTitle}</div>
-              </div>
-              <div>
-                <label className="block text-sm font-black text-slate-500 mb-2">Description (SEO Optimized)</label>
-                <textarea readOnly className="w-full p-4 bg-slate-100 rounded-xl font-medium text-slate-600 border border-slate-200 h-40 outline-none resize-none" value={shortsDesc} />
-              </div>
-              <div>
-                <label className="block text-sm font-black text-slate-500 mb-2">Tags</label>
-                <textarea readOnly className="w-full p-4 bg-slate-100 rounded-xl font-medium text-slate-600 border border-slate-200 h-24 outline-none resize-none" value={shortsTags} />
-              </div>
+              <div><label className="block text-sm font-black text-slate-500 mb-2">Video Title</label><div className="p-4 bg-slate-100 rounded-xl font-bold text-slate-700 border border-slate-200">{shortsTitle}</div></div>
+              <div><label className="block text-sm font-black text-slate-500 mb-2">Description</label><textarea readOnly className="w-full p-4 bg-slate-100 rounded-xl font-medium text-slate-600 border border-slate-200 h-40 outline-none resize-none" value={shortsDesc} /></div>
+              <div><label className="block text-sm font-black text-slate-500 mb-2">Tags</label><textarea readOnly className="w-full p-4 bg-slate-100 rounded-xl font-medium text-slate-600 border border-slate-200 h-24 outline-none resize-none" value={shortsTags} /></div>
             </div>
-
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6">
               <h2 className="text-xl font-black text-slate-800 border-b pb-4">🖥️ For Long Video (16:9)</h2>
-              <div>
-                <label className="block text-sm font-black text-slate-500 mb-2">Video Title</label>
-                <div className="p-4 bg-slate-100 rounded-xl font-bold text-slate-700 border border-slate-200">{longTitle}</div>
-              </div>
-              <div>
-                <label className="block text-sm font-black text-slate-500 mb-2">Description (SEO Optimized)</label>
-                <textarea readOnly className="w-full p-4 bg-slate-100 rounded-xl font-medium text-slate-600 border border-slate-200 h-40 outline-none resize-none" value={longDesc} />
-              </div>
-              <div>
-                <label className="block text-sm font-black text-slate-500 mb-2">Tags</label>
-                <textarea readOnly className="w-full p-4 bg-slate-100 rounded-xl font-medium text-slate-600 border border-slate-200 h-24 outline-none resize-none" value={longTags} />
-              </div>
+              <div><label className="block text-sm font-black text-slate-500 mb-2">Video Title</label><div className="p-4 bg-slate-100 rounded-xl font-bold text-slate-700 border border-slate-200">{longTitle}</div></div>
+              <div><label className="block text-sm font-black text-slate-500 mb-2">Description</label><textarea readOnly className="w-full p-4 bg-slate-100 rounded-xl font-medium text-slate-600 border border-slate-200 h-40 outline-none resize-none" value={longDesc} /></div>
+              <div><label className="block text-sm font-black text-slate-500 mb-2">Tags</label><textarea readOnly className="w-full p-4 bg-slate-100 rounded-xl font-medium text-slate-600 border border-slate-200 h-24 outline-none resize-none" value={longTags} /></div>
             </div>
           </div>
         </div>
@@ -885,22 +791,14 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-900 overflow-hidden font-sans" style={{ minHeight: '100vh', width: '100vw', backgroundColor: '#0f172a' }}>
-      
       {/* TOP NAVIGATION BAR */}
       <div className="h-16 bg-slate-900 border-b border-slate-800 flex items-center px-6 gap-4 shrink-0 shadow-md z-20">
         <div className="text-white font-black text-xl mr-8 flex items-center gap-2 tracking-tight">
           <MonitorPlay className="text-blue-500"/> CHART<span className="text-blue-500">STUDIO</span>
         </div>
-        
-        <button onClick={() => setActiveTab('preview')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'preview' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
-          <LayoutTemplate size={18}/> Preview Animasi
-        </button>
-        <button onClick={() => setActiveTab('editor')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
-          <Database size={18}/> Editor Tabel Data
-        </button>
-        <button onClick={() => setActiveTab('seo')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'seo' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
-          <Video size={18}/> YouTube SEO
-        </button>
+        <button onClick={() => setActiveTab('preview')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'preview' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><LayoutTemplate size={18}/> Preview Animasi</button>
+        <button onClick={() => setActiveTab('editor')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Database size={18}/> Editor Tabel Data</button>
+        <button onClick={() => setActiveTab('seo')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${activeTab === 'seo' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Video size={18}/> YouTube SEO</button>
       </div>
 
       {/* CONTENT AREA */}
@@ -909,7 +807,6 @@ export default function App() {
         {activeTab === 'editor' && renderDataEditor()}
         {activeTab === 'seo' && renderSEO()}
       </div>
-
     </div>
   );
 }
