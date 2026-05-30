@@ -1,32 +1,38 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Play, Pause, RotateCcw, Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X } from 'lucide-react';
+import { Play, Pause, RotateCcw, Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp } from 'lucide-react';
 
 // ============================================================================
 // DATA BAWAAN LENGKAP
 // ============================================================================
 const defaultData = {
-  title: "PREMIER LEAGUE 25/26",
-  periodPrefix: "WK",
+  title: "TOP 10 YOUTUBERS 2024",
+  periodPrefix: "Month",
   startPeriod: 1, 
-  periods: 38,
-  footerText: "@YourChannelName",
-  unitLabel: "PTS",
+  periods: 12,
+  footerText: "@GlobeChart",
+  unitLabel: "SUBSCRIBERS",
   items: [
-    { id: "MCI", name: "Man City", color: "#6CABDD", logo: "https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg", points: [3, 6, 9, 12, 15, 18, 18, 21, 24, 27, 30, 31, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104, 107] },
-    { id: "ARS", name: "Arsenal", color: "#EF0107", logo: "https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg", points: [3, 6, 7, 10, 13, 14, 17, 20, 23, 24, 24, 27, 30, 33, 36, 39, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104] },
-    { id: "LIV", name: "Liverpool", color: "#C8102E", logo: "https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg", points: [1, 4, 7, 10, 13, 16, 17, 20, 23, 26, 27, 28, 31, 34, 37, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104] },
-    { id: "AVL", name: "Aston Villa", color: "#670E36", logo: "https://upload.wikimedia.org/wikipedia/en/9/9f/Aston_Villa_logo.svg", points: [0, 3, 6, 9, 12, 15, 16, 19, 22, 25, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104, 107] },
-    { id: "TOT", name: "Spurs", color: "#132257", logo: "https://upload.wikimedia.org/wikipedia/en/b/b4/Tottenham_Hotspur.svg", points: [1, 4, 7, 10, 13, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104, 107, 110] },
-    { id: "CHE", name: "Chelsea", color: "#034694", logo: "https://upload.wikimedia.org/wikipedia/en/c/cc/Chelsea_FC.svg", points: [1, 1, 4, 4, 5, 8, 11, 12, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 55, 58, 61, 64, 67, 70, 73, 76, 79, 82, 85, 88, 91, 94, 97, 100] },
-    { id: "NEW", name: "Newcastle", color: "#241F20", logo: "https://upload.wikimedia.org/wikipedia/en/5/56/Newcastle_United_Logo.svg", points: [3, 3, 3, 6, 9, 12, 13, 16, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104] },
-    { id: "MUN", name: "Man Utd", color: "#DA291C", logo: "https://upload.wikimedia.org/wikipedia/en/7/7a/Manchester_United_FC_crest.svg", points: [3, 3, 6, 6, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84, 87, 90, 93, 96, 99, 102, 105] }
+    { id: "MRB", name: "MrBeast", color: "#0ea5e9", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/MrBeast_Logo.png/640px-MrBeast_Logo.png", points: [130000000, 135000000, 142000000, 150000000, 160000000, 175000000, 185000000, 195000000, 205000000, 220000000, 240000000, 260000000] },
+    { id: "TSR", name: "T-Series", color: "#ef4444", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/T-series-logo.svg/640px-T-series-logo.svg.png", points: [235000000, 237000000, 239000000, 241000000, 243000000, 245000000, 247000000, 249000000, 251000000, 253000000, 255000000, 257000000] },
+    { id: "COM", name: "Cocomelon", color: "#10b981", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Cocomelon_logo.svg/640px-Cocomelon_logo.svg.png", points: [152000000, 154000000, 156000000, 158000000, 160000000, 162000000, 164000000, 166000000, 168000000, 170000000, 172000000, 174000000] },
+    { id: "SET", name: "SET India", color: "#f59e0b", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/SET_India_logo.png/640px-SET_India_logo.png", points: [150000000, 152000000, 154000000, 155000000, 157000000, 159000000, 161000000, 163000000, 165000000, 167000000, 169000000, 171000000] },
+    { id: "KID", name: "Kids Diana", color: "#ec4899", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Kids_Diana_Show_logo.png/640px-Kids_Diana_Show_logo.png", points: [108000000, 110000000, 111000000, 112000000, 113000000, 114000000, 115000000, 116000000, 117000000, 118000000, 119000000, 120000000] }
   ]
 };
 
+// Fungsi ekstrak angka murni
 const getSafePts = (pointsArr, index) => {
   if (!pointsArr || pointsArr.length === 0) return 0;
   let val = index < pointsArr.length ? pointsArr[index] : pointsArr[pointsArr.length - 1]; 
-  return Number(val) || 0;
+  return parseInt(String(val).replace(/[^0-9-]/g, ''), 10) || 0;
+};
+
+// Fungsi ekstrak emoji (Milestone)
+const getSafeEmoji = (pointsArr, index) => {
+  if (!pointsArr || index >= pointsArr.length) return "";
+  const val = String(pointsArr[index]);
+  const emojiOnly = val.replace(/[0-9-\s.,]/g, '').trim();
+  return emojiOnly;
 };
 
 export default function App() {
@@ -38,13 +44,12 @@ export default function App() {
   const [speed, setSpeed] = useState(1);
   const [layout, setLayout] = useState('16:9');
   const [topN, setTopN] = useState(5); 
-  const [markerStyle, setMarkerStyle] = useState('logo'); 
-  const [popupEffect, setPopupEffect] = useState('trophy'); // BARU: State untuk popup pencapaian
+  const [markerStyle, setMarkerStyle] = useState('both'); 
+  const [chartType, setChartType] = useState('bar'); 
   
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
-
   const [showClearModal, setShowClearModal] = useState(false);
 
   const reqRef = useRef(null);
@@ -122,7 +127,7 @@ export default function App() {
       const newItems = [...prev.items];
       const newPoints = [...newItems[index].points];
       while (newPoints.length < prev.periods) newPoints.push(newPoints[newPoints.length - 1] || 0);
-      newPoints[periodIndex] = value === '' ? '' : (parseInt(value, 10) || 0);
+      newPoints[periodIndex] = value;
       newItems[index] = { ...newItems[index], points: newPoints };
       return { ...prev, items: newItems };
     });
@@ -150,9 +155,6 @@ export default function App() {
     setShowClearModal(false);
   };
 
-  // ----------------------------------------------------------------------------
-  // LOGIKA MAGIC IMPORT
-  // ----------------------------------------------------------------------------
   const handleImportData = () => {
     try {
       const rows = importText.trim().split('\n');
@@ -163,45 +165,38 @@ export default function App() {
         let cleanRow = row.trim();
         if (cleanRow.startsWith('|')) cleanRow = cleanRow.substring(1);
         if (cleanRow.endsWith('|')) cleanRow = cleanRow.substring(0, cleanRow.length - 1);
-        
         const cols = cleanRow.split(/\t|\|/).map(c => c.trim()).filter(c => c !== '');
-        
         if (cols.length < 2 || cols[0].includes('---') || cols[0].toLowerCase().includes('tim') || cols[0].toLowerCase().includes('team') || cols[0].toLowerCase() === 'nama') return;
-        
         const name = cols[0];
         const id = (name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase() || 'DAT'); 
-        
         const presetColors = ["#EF0107", "#6CABDD", "#FDB913", "#1B458F", "#132257", "#034694", "#E30613", "#DA291C", "#F78F1E", "#0057B8", "#670E36", "#241F20", "#7A263A", "#DD0000", "#6C1D45"];
         const color = presetColors[parsedItems.length % presetColors.length];
 
         const rawPoints = cols.slice(1);
         if (rawPoints.length > detectedPeriods) detectedPeriods = rawPoints.length;
-
         parsedItems.push({ id, name, color, logo: "", rawPoints });
       });
 
       if (parsedItems.length > 0) {
         const newPeriods = Math.max(data.periods, detectedPeriods);
-        
         const finalItems = parsedItems.map(item => {
           const points = [];
-          let lastVal = 0;
+          let lastVal = "0";
           for (let p = 0; p < newPeriods; p++) {
             if (p < item.rawPoints.length) {
-              const val = parseInt(item.rawPoints[p].replace(/[^0-9-]/g, ''));
-              lastVal = isNaN(val) ? lastVal : val;
+              const val = item.rawPoints[p];
+              lastVal = val === "" ? lastVal : val;
             }
             points.push(lastVal);
           }
           return { id: item.id, name: item.name, color: item.color, logo: "", points };
         });
-
         setData(prev => ({ ...prev, periods: newPeriods, items: finalItems }));
         setShowImportModal(false);
         setImportText("");
         setImportError("");
       } else {
-        setImportError("Format tidak dikenali. Pastikan Anda menyalin tabel yang berisi sekumpulan Nama dan Angka.");
+        setImportError("Format tidak dikenali. Pastikan Anda menyalin tabel yang berisi Nama dan Angka.");
       }
     } catch (error) {
       setImportError("Terjadi kesalahan sistem saat memproses data tabel Anda.");
@@ -224,49 +219,59 @@ export default function App() {
     const CHART_Y_START = HEADER_H + X_AXIS_H; 
     const CHART_HEIGHT = SVG_HEIGHT - CHART_Y_START - FOOTER_H; 
     
-    const RIGHT_HUD_W = isVertical ? 240 : 280; 
-    const RANK_X = isVertical ? 80 : 120;       
-    const START_X = isVertical ? 240 : 300;     
-    
-    const CHART_WIDTH = SVG_WIDTH - START_X - RIGHT_HUD_W - (isVertical ? 40 : 60); 
-
     const safeTopN = Math.max(topN, 2); 
     const rowHeight = CHART_HEIGHT / safeTopN; 
-    const getY = (rank) => CHART_Y_START + ((rank - 0.5) * rowHeight);
 
-    const FONT_RANK = Math.min(rowHeight * 0.5, isVertical ? 45 : 50);
-    const FONT_HUD  = Math.min(rowHeight * 0.5, isVertical ? 40 : 45);
-    const FONT_WK   = isVertical ? 30 : 35; 
-    const FONT_TITLE= isVertical ? 45 : 60;
-    const FONT_FOOT = isVertical ? 30 : 35;
+    // --- KONFIGURASI LINE CHART ---
+    const LINE_RIGHT_HUD_W = isVertical ? 240 : 280; 
+    const LINE_RANK_X = isVertical ? 80 : 120;       
+    const LINE_START_X = isVertical ? 240 : 300;     
+    const LINE_CHART_WIDTH = SVG_WIDTH - LINE_START_X - LINE_RIGHT_HUD_W - (isVertical ? 40 : 60); 
 
     const NODE_OUTER_R = Math.min(rowHeight * 0.4, isVertical ? 45 : 50);
     const NODE_INNER_R = NODE_OUTER_R * 0.85;
     const LINE_WIDTH = Math.max(Math.min(rowHeight * 0.15, 12), 6);
     const FONT_NODE = Math.max(NODE_INNER_R * 0.6, 16); 
+    const clipLeftX = LINE_START_X - (NODE_OUTER_R * 2);
 
+    // --- KONFIGURASI BAR CHART (RESPONSIVE AUTO-SCALE) ---
+    const effectiveRowHeight = chartType === 'bar' ? Math.min(CHART_HEIGHT / safeTopN, isVertical ? 130 : 110) : rowHeight;
+    const BAR_HEIGHT = effectiveRowHeight * 0.65;
+    const BAR_LOGO_R = BAR_HEIGHT / 2;
+    const BAR_START_X = isVertical ? 150 : 200; 
+    const BAR_MAX_WIDTH = SVG_WIDTH - BAR_START_X - (isVertical ? 350 : 400); 
+
+    const totalBarsHeight = safeTopN * effectiveRowHeight;
+    const yOffset = chartType === 'bar' ? Math.max(0, (CHART_HEIGHT - totalBarsHeight) / 2) : 0;
+    const getY = (rank) => CHART_Y_START + yOffset + ((rank - 0.5) * effectiveRowHeight);
+    
+    // --- FONT SETTINGS ---
+    const FONT_RANK = Math.min(effectiveRowHeight * 0.5, isVertical ? 45 : 50);
+    const FONT_HUD  = Math.min(rowHeight * 0.5, isVertical ? 40 : 45);
+    const FONT_WK   = isVertical ? 30 : 35; 
+    const FONT_TITLE= isVertical ? 45 : 60;
+    const FONT_FOOT = isVertical ? 30 : 35;
     const PILL_H = Math.min(rowHeight * 0.7, 80);
     const PILL_R = PILL_H / 2;
 
-    const clipLeftX = START_X - (NODE_OUTER_R * 2);
-
-    const sampleLabel = data.periodPrefix 
-        ? `${data.periodPrefix} ${Number(data.startPeriod || 1)}` 
-        : `${Number(data.startPeriod || 1)}`;
+    // --- KALKULASI KECEPATAN KAMERA (PAN X) UNTUK LINE CHART ---
+    // Dipindahkan ke atas agar bisa digunakan di dalam getMarkerPos untuk sinkronisasi mutlak
+    const sampleLabel = data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1)}` : `${Number(data.startPeriod || 1)}`;
     const isLongText = sampleLabel.length > 5; 
-    
     const VISIBLE_WEEKS = isVertical ? (isLongText ? 3 : 4) : (isLongText ? 4 : 6);
     const activeVisiblePeriods = Math.min(data.periods, VISIBLE_WEEKS);
     
-    const SPACING = CHART_WIDTH / Math.max(activeVisiblePeriods - 1, 1);
-    const getX = (index) => START_X + (index * SPACING);
+    // PERBAIKAN BUG 1: Jarak pasti antar titik dalam Line Chart
+    const LINE_SPACING = LINE_CHART_WIDTH / Math.max(activeVisiblePeriods - 1, 1);
     
     const panThreshold = Math.max(1, activeVisiblePeriods - 2); 
-    const panX = Math.max(0, progress - panThreshold) * SPACING;
+    const panX = Math.max(0, progress - panThreshold) * LINE_SPACING;
 
+    // --- LERP & EASING ---
     const lerp = (start, end, t) => start + (end - start) * t;
     const easeInOutSine = (t) => t * t * (3 - 2 * t);
     
+    // Fungsi pencari kordinat X, Y saat animasi berjalan
     const getMarkerPos = (item, currentProgress) => {
       const w1 = Math.floor(currentProgress);
       const w2 = Math.min(w1 + 1, data.periods - 1);
@@ -274,24 +279,32 @@ export default function App() {
       const easedT = easeInOutSine(t);
       const r1 = item.ranks[w1] || 1;
       const r2 = item.ranks[w2] || 1;
+      
+      // PERBAIKAN BUG 1: Kordinat X Line Chart menggunakan rumus LINE_SPACING agar 100% sama dengan garisnya
+      const lineX = lerp(LINE_START_X + (w1 * LINE_SPACING), LINE_START_X + (w2 * LINE_SPACING), t);
+
       return { 
-        x: lerp(getX(w1), getX(w2), t), 
+        x: chartType === 'line' ? lineX : 0, 
         y: lerp(getY(r1), getY(r2), easedT),
-        rank: lerp(r1, r2, easedT)
+        rank: lerp(r1, r2, easedT),
+        val: lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), t)
       };
     };
 
-    const generatePath = (item) => {
-      if (item.ranks.length === 0) return "";
-      let d = `M ${getX(0)} ${getY(item.ranks[0] || 1)}`;
-      for (let i = 0; i < data.periods - 1; i++) {
-        const r1 = item.ranks[i] || 1;
-        const r2 = item.ranks[i+1] || 1;
-        const x0 = getX(i), y0 = getY(r1), x1 = getX(i+1), y1 = getY(r2);
-        const dx = (x1 - x0) / 2;
-        d += ` C ${x0 + dx} ${y0}, ${x1 - dx} ${y1}, ${x1} ${y1}`;
-      }
-      return d;
+    // Cari nilai terbesar (max) untuk lebar Bar Chart Race
+    let currentMaxVal = 1;
+    if (chartType === 'bar') {
+      computedItems.forEach(item => {
+        const w1 = Math.floor(progress);
+        const w2 = Math.min(w1 + 1, data.periods - 1);
+        const t = progress - w1;
+        const val = lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), t);
+        if (val > currentMaxVal) currentMaxVal = val;
+      });
+    }
+
+    const formatValue = (val) => {
+      return new Intl.NumberFormat('en-US').format(Math.round(val));
     };
 
     return (
@@ -310,33 +323,37 @@ export default function App() {
               </button>
             </div>
 
+            {/* PILIHAN MODEL GRAFIK */}
+            <div className="space-y-3">
+              <label className="text-[11px] font-black text-blue-600 uppercase tracking-wider">M O D E L &nbsp; G R A F I K</label>
+              <div className="flex gap-2">
+                <button onClick={() => setChartType('line')} className={`flex-1 py-3 text-xs font-bold rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${chartType === 'line' ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                  <TrendingUp size={20} /> Line Racing
+                </button>
+                <button onClick={() => setChartType('bar')} className={`flex-1 py-3 text-xs font-bold rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${chartType === 'bar' ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                  <BarChartHorizontal size={20} /> Bar Racing
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-3">
               <label className="text-xs font-bold text-slate-500 uppercase">Video Resolution</label>
               <div className="flex gap-2">
-                <button onClick={() => setLayout('16:9')} className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all ${layout === '16:9' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>16:9 (Wide)</button>
-                <button onClick={() => setLayout('9:16')} className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all ${layout === '9:16' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>9:16 (Shorts)</button>
+                <button onClick={() => setLayout('16:9')} className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all ${layout === '16:9' ? 'border-slate-400 bg-slate-100 text-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>16:9 (Wide)</button>
+                <button onClick={() => setLayout('9:16')} className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all ${layout === '9:16' ? 'border-slate-400 bg-slate-100 text-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>9:16 (Shorts)</button>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-500 uppercase">Tampilan Tim / Marker</label>
-              <div className="flex gap-2">
-                <button onClick={() => setMarkerStyle('logo')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${markerStyle === 'logo' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Logo</button>
-                <button onClick={() => setMarkerStyle('name')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${markerStyle === 'name' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Nama</button>
-                <button onClick={() => setMarkerStyle('both')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${markerStyle === 'both' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Logo+Nama</button>
+            {chartType === 'line' && (
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-500 uppercase">Tampilan Marker (Khusus Line)</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setMarkerStyle('logo')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${markerStyle === 'logo' ? 'border-slate-400 bg-slate-100 text-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>Logo</button>
+                  <button onClick={() => setMarkerStyle('name')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${markerStyle === 'name' ? 'border-slate-400 bg-slate-100 text-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>Nama</button>
+                  <button onClick={() => setMarkerStyle('both')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${markerStyle === 'both' ? 'border-slate-400 bg-slate-100 text-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>Logo+Nama</button>
+                </div>
               </div>
-            </div>
-
-            {/* OPSI EFEK POP-UP PENCAPAIAN */}
-            <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-500 uppercase">Efek Pop-up (Saat Poin Naik)</label>
-              <div className="flex gap-2">
-                <button onClick={() => setPopupEffect('none')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${popupEffect === 'none' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Mati</button>
-                <button onClick={() => setPopupEffect('angka')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${popupEffect === 'angka' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Angka</button>
-                <button onClick={() => setPopupEffect('trophy')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${popupEffect === 'trophy' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Trofi 🏆</button>
-                <button onClick={() => setPopupEffect('star')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${popupEffect === 'star' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Bintang ⭐</button>
-              </div>
-            </div>
+            )}
 
             <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div>
@@ -365,15 +382,15 @@ export default function App() {
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Period Prefix</label>
-                  <input type="text" value={data.periodPrefix} onChange={(e) => handleUpdateGeneral('periodPrefix', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="WK / YR / None" />
+                  <input type="text" value={data.periodPrefix} onChange={(e) => handleUpdateGeneral('periodPrefix', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="WK / YR" />
                 </div>
                 <div className="col-span-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Start Num/Year</label>
-                  <input type="number" value={data.startPeriod || 1} onChange={(e) => handleUpdateGeneral('startPeriod', parseInt(e.target.value) || 0)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="e.g. 2000" />
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Start Num</label>
+                  <input type="number" value={data.startPeriod || 1} onChange={(e) => handleUpdateGeneral('startPeriod', parseInt(e.target.value) || 0)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="2000" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Unit Label</label>
-                  <input type="text" value={data.unitLabel} onChange={(e) => handleUpdateGeneral('unitLabel', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="PTS / SUBS" />
+                  <input type="text" value={data.unitLabel} onChange={(e) => handleUpdateGeneral('unitLabel', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="PTS" />
                 </div>
               </div>
 
@@ -396,201 +413,234 @@ export default function App() {
           <div className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden flex flex-col ring-1 ring-slate-300"
             style={{ height: isVertical ? '95%' : '90%', width: isVertical ? 'auto' : '100%', maxWidth: isVertical ? 'none' : '1600px', aspectRatio: isVertical ? '9/16' : '16/9' }}>
             <div className="flex-1 w-full relative">
+              
+              {/* --- BACKGROUND SVG UTAMA --- */}
               <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="w-full h-full absolute inset-0" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%' }}>
                 
-                {/* === 1. ZONA HEADER & FOOTER === */}
-                <g>
-                  <rect x="0" y="0" width={SVG_WIDTH} height={HEADER_H} fill="#FFCA28" />
-                  <rect x="0" y={HEADER_H - 4} width={SVG_WIDTH} height="4" fill="#0F172A" />
-                  <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_TITLE} fontWeight="900" letterSpacing="4" style={{ fontFamily: 'sans-serif' }}>{data.title}</text>
-                  
-                  <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height={FOOTER_H} fill="#FFCA28" />
-                  <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height="4" fill="#0F172A" />
-                  <text x={SVG_WIDTH / 2} y={SVG_HEIGHT - (FOOTER_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_FOOT} fontWeight="900" letterSpacing="2" style={{ fontFamily: 'sans-serif' }}>{data.footerText}</text>
-                </g>
-
-                {/* === 2. BACKGROUND & GRID KLASEMEN === */}
-                <g>
-                  {Array.from({ length: safeTopN }).map((_, i) => (
-                    i % 2 === 0 && <rect key={`bg-row-${i}`} x="0" y={getY(i + 1) - (rowHeight / 2)} width={SVG_WIDTH} height={rowHeight} fill="#F8FAFC" />
-                  ))}
-                  {Array.from({ length: safeTopN }).map((_, i) => (
-                    <g key={`grid-y-${i}`}>
-                      <line x1="0" y1={getY(i + 1) + (rowHeight / 2)} x2={SVG_WIDTH} y2={getY(i + 1) + (rowHeight / 2)} stroke="#E2E8F0" strokeWidth="2" />
-                      <text x={RANK_X} y={getY(i + 1)} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_RANK} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>{i + 1}</text>
-                    </g>
-                  ))}
-                </g>
-
-                {/* === 3. DEFS & CLIPPING === */}
                 <defs>
-                  <clipPath id="header-clip"><rect x={clipLeftX} y={HEADER_H} width={SVG_WIDTH - clipLeftX - RIGHT_HUD_W} height={X_AXIS_H} /></clipPath>
-                  <clipPath id="chart-clip"><rect x={clipLeftX} y={CHART_Y_START} width={SVG_WIDTH - clipLeftX - RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
-                  <clipPath id="hud-clip"><rect x={SVG_WIDTH - RIGHT_HUD_W} y={CHART_Y_START} width={RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
-                  <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + getX(progress)} height="3000" /></clipPath>
+                  <rect id="dark-bg" width={SVG_WIDTH} height={SVG_HEIGHT} fill="#0F172A" />
+                  
                   <filter id="clean-shadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="5" stdDeviation="6" floodOpacity="0.15" floodColor="#0F172A" />
+                    <feDropShadow dx="0" dy="5" stdDeviation="6" floodOpacity="0.15" floodColor="#000000" />
                   </filter>
-                  {computedItems.map(item => (
-                    <clipPath id={`logo-clip-${item.id}`} key={`clip-${item.id}`}>
-                      <circle r={NODE_INNER_R} />
-                    </clipPath>
-                  ))}
+                  
+                  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+
+                  {/* Clip-Path Universal Anti-Bocor untuk Semua Logo */}
+                  <clipPath id="line-logo-clip">
+                    <circle cx="0" cy="0" r={NODE_INNER_R} />
+                  </clipPath>
+                  
+                  <clipPath id="bar-logo-clip">
+                    <circle cx="0" cy="0" r={BAR_LOGO_R} />
+                  </clipPath>
+
+                  {/* Clip-Path Untuk Tampilan Sumbu */}
+                  <clipPath id="header-clip"><rect x={clipLeftX} y={HEADER_H} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={X_AXIS_H} /></clipPath>
+                  <clipPath id="chart-clip"><rect x={clipLeftX} y={CHART_Y_START} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
+                  <clipPath id="hud-clip"><rect x={SVG_WIDTH - LINE_RIGHT_HUD_W} y={CHART_Y_START} width={LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
+                  
+                  {/* Clip-Path yang memastikan batas kanan dan kiri sempurna */}
+                  <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + LINE_START_X + (progress * LINE_SPACING)} height="3000" /></clipPath>
                 </defs>
 
-                {/* === EPIC WATERMARK === */}
-                <g clipPath="url(#chart-clip)">
-                  <text x={SVG_WIDTH - RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#CBD5E1" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
-                    {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + Math.floor(progress)}` : `${Number(data.startPeriod || 1) + Math.floor(progress)}`}
-                  </text>
+                {/* Latar Belakang Berubah Otomatis */}
+                {chartType === 'bar' ? <use href="#dark-bg" /> : <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="#FFFFFF" />}
+
+                {/* === ZONA HEADER & FOOTER === */}
+                <g>
+                  <rect x="0" y="0" width={SVG_WIDTH} height={HEADER_H} fill={chartType === 'bar' ? '#1E293B' : '#FFCA28'} />
+                  <rect x="0" y={HEADER_H - 4} width={SVG_WIDTH} height="4" fill="#0F172A" />
+                  <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_TITLE} fontWeight="900" letterSpacing="4" style={{ fontFamily: 'sans-serif' }}>{data.title}</text>
+                  
+                  <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height={FOOTER_H} fill={chartType === 'bar' ? '#1E293B' : '#FFCA28'} />
+                  <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height="4" fill="#0F172A" />
+                  <text x={SVG_WIDTH / 2} y={SVG_HEIGHT - (FOOTER_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill={chartType === 'bar' ? '#FFFFFF' : '#0F172A'} fontSize={FONT_FOOT} fontWeight="900" letterSpacing="2" style={{ fontFamily: 'sans-serif' }}>{data.footerText}</text>
                 </g>
 
-                {/* === 4. TULISAN PERIODE === */}
-                <g>
-                  <rect x="0" y={HEADER_H} width={SVG_WIDTH} height={X_AXIS_H} fill="#FFFFFF" />
-                  <line x1="0" y1={CHART_Y_START} x2={SVG_WIDTH} y2={CHART_Y_START} stroke="#CBD5E1" strokeWidth="2" />
-                  <text x={SVG_WIDTH - (RIGHT_HUD_W / 2)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
-                  <g clipPath="url(#header-clip)">
-                    <g transform={`translate(${-panX}, 0)`}>
-                      {Array.from({ length: data.periods }).map((_, i) => {
-                        const displayLabel = data.periodPrefix 
-                          ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + i}` 
-                          : `${Number(data.startPeriod || 1) + i}`;
 
-                        return (
-                          <text key={`wk-${i}`} x={getX(i)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_WK} fontWeight="900">
-                            {displayLabel}
-                          </text>
-                        );
-                      })}
+                {/* ========================================================================
+                                      MODE 1: RACING LINE CHART
+                    ======================================================================== */}
+                {chartType === 'line' && (
+                  <g>
+                    {/* Background Grid (Lebih dulu dari Watermark agar tidak menutupi) */}
+                    {Array.from({ length: safeTopN }).map((_, i) => (
+                      <g key={`line-bg-${i}`}>
+                        {i % 2 === 0 && <rect x="0" y={getY(i + 1) - (effectiveRowHeight / 2)} width={SVG_WIDTH} height={effectiveRowHeight} fill="#F8FAFC" />}
+                        <line x1="0" y1={getY(i + 1) + (effectiveRowHeight / 2)} x2={SVG_WIDTH} y2={getY(i + 1) + (effectiveRowHeight / 2)} stroke="#E2E8F0" strokeWidth="2" />
+                        <text x={LINE_RANK_X} y={getY(i + 1)} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_RANK} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>{i + 1}</text>
+                      </g>
+                    ))}
+
+                    {/* PERBAIKAN BUG 2: WATERMARK TAHUN LINE CHART (Sekarang ada di atas Background Grid!) */}
+                    <g clipPath="url(#chart-clip)">
+                      <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#CBD5E1" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
+                        {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + Math.floor(progress)}` : `${Number(data.startPeriod || 1) + Math.floor(progress)}`}
+                      </text>
+                    </g>
+
+                    {/* Tulisan X-Axis Header */}
+                    <g>
+                      <rect x="0" y={HEADER_H} width={SVG_WIDTH} height={X_AXIS_H} fill="#FFFFFF" />
+                      <line x1="0" y1={CHART_Y_START} x2={SVG_WIDTH} y2={CHART_Y_START} stroke="#CBD5E1" strokeWidth="2" />
+                      <text x={SVG_WIDTH - (LINE_RIGHT_HUD_W / 2)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
+                      <g clipPath="url(#header-clip)">
+                        <g transform={`translate(${-panX}, 0)`}>
+                          {Array.from({ length: data.periods }).map((_, i) => (
+                            <text key={`wk-${i}`} x={LINE_START_X + (i * LINE_SPACING)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#64748B" fontSize={FONT_WK} fontWeight="900">
+                              {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + i}` : `${Number(data.startPeriod || 1) + i}`}
+                            </text>
+                          ))}
+                        </g>
+                      </g>
+                    </g>
+
+                    <g clipPath="url(#chart-clip)">
+                      <g transform={`translate(${-panX}, 0)`}>
+                        {/* Garis vertikal penanda tahun/minggu */}
+                        {Array.from({ length: data.periods }).map((_, i) => (
+                          <line key={`grid-x-${i}`} x1={LINE_START_X + (i * LINE_SPACING)} y1={CHART_Y_START} x2={LINE_START_X + (i * LINE_SPACING)} y2={SVG_HEIGHT - FOOTER_H} stroke="#CBD5E1" strokeWidth="2" strokeDasharray="6 6" />
+                        ))}
+                        
+                        <g clipPath="url(#reveal-clip)">
+                          {/* Garis Jalan */}
+                          {computedItems.map((item) => {
+                            if (item.ranks.length === 0) return null;
+                            let d = `M ${LINE_START_X} ${getY(item.ranks[0] || 1)}`;
+                            for (let i = 0; i < data.periods - 1; i++) {
+                              const x0 = LINE_START_X + (i * LINE_SPACING), y0 = getY(item.ranks[i] || 1);
+                              const x1 = LINE_START_X + ((i+1) * LINE_SPACING), y1 = getY(item.ranks[i+1] || 1);
+                              const dx = (x1 - x0) / 2;
+                              d += ` C ${x0 + dx} ${y0}, ${x1 - dx} ${y1}, ${x1} ${y1}`;
+                            }
+                            return Math.min(...(item.ranks.length > 0 ? item.ranks : [1])) <= safeTopN && (
+                              <path key={`path-${item.id}`} d={d} fill="none" stroke={item.color} strokeWidth={LINE_WIDTH} strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+                            );
+                          })}
+                          
+                          {/* Milestone (Emoji Sejarah yang ditinggalkan di garis) */}
+                          {computedItems.map((item) => item.points.map((pt, pIdx) => {
+                            const emoji = getSafeEmoji(item.points, pIdx);
+                            if (!emoji) return null; 
+                            return (
+                              <g key={`ms-${item.id}-${pIdx}`} transform={`translate(${LINE_START_X + (pIdx * LINE_SPACING)}, ${getY(item.ranks[pIdx] || 1)})`}>
+                                <circle r={NODE_OUTER_R * 0.7} fill="#FFFFFF" stroke={item.color} strokeWidth="3" />
+                                <text y="2" dominantBaseline="middle" textAnchor="middle" fontSize={NODE_OUTER_R * 0.7}>{emoji}</text>
+                              </g>
+                            );
+                          }))}
+                        </g>
+
+                        {/* PERBAIKAN BUG 1: LOGO LINE CHART DIJAMIN 100% MENEMPEL DI UJUNG GARIS */}
+                        {computedItems.map((item) => {
+                          const pos = getMarkerPos(item, progress);
+                          if (pos.rank > safeTopN + 1.5) return null; 
+                          const hasLogo = item.logo && item.logo.trim() !== '';
+                          
+                          return (
+                            <g key={`marker-${item.id}`} transform={`translate(${pos.x}, ${pos.y})`}>
+                              {markerStyle === 'logo' && (
+                                <g>
+                                  <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
+                                  {hasLogo ? <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath="url(#line-logo-clip)" preserveAspectRatio="xMidYMid slice" /> : <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>}
+                                </g>
+                              )}
+                              {markerStyle === 'name' && (
+                                <g>
+                                  <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
+                                  <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
+                                </g>
+                              )}
+                              {markerStyle === 'both' && (
+                                <g>
+                                  <rect x={-NODE_OUTER_R} y={-NODE_OUTER_R} width={NODE_OUTER_R * 3.8} height={NODE_OUTER_R * 2} fill="#FFFFFF" rx={NODE_OUTER_R} stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
+                                  {hasLogo ? <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath="url(#line-logo-clip)" preserveAspectRatio="xMidYMid slice" /> : <circle cx="0" cy="0" r={NODE_INNER_R} fill={item.color} />}
+                                  <text x={NODE_OUTER_R * 1.3} y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE * 1.1} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
+                                </g>
+                              )}
+                            </g>
+                          );
+                        })}
+                      </g>
+                    </g>
+
+                    {/* HUD Kotak Skor Kanan */}
+                    <g>
+                      <rect x={SVG_WIDTH - LINE_RIGHT_HUD_W} y={CHART_Y_START} width={LINE_RIGHT_HUD_W} height={CHART_HEIGHT} fill="#F8FAFC" />
+                      <line x1={SVG_WIDTH - LINE_RIGHT_HUD_W} y1={HEADER_H} x2={SVG_WIDTH - LINE_RIGHT_HUD_W} y2={SVG_HEIGHT - FOOTER_H} stroke="#CBD5E1" strokeWidth="2" />
+                      <g clipPath="url(#hud-clip)">
+                        {computedItems.map((item) => {
+                          const pos = getMarkerPos(item, progress);
+                          if (pos.rank > safeTopN + 1.5) return null; 
+                          return (
+                            <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - LINE_RIGHT_HUD_W}, ${pos.y})`}>
+                              <rect x="30" y={-PILL_H / 2} width={LINE_RIGHT_HUD_W - 60} height={PILL_H} fill="#FFFFFF" rx={PILL_R} stroke={item.color} strokeWidth="3" filter="url(#clean-shadow)" />
+                              <text x={LINE_RIGHT_HUD_W / 2} y="0" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_HUD} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
+                                {formatValue(pos.val)}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </g>
                     </g>
                   </g>
-                </g>
+                )}
 
-                {/* === 5. AREA CHART BALAPAN === */}
-                <g clipPath="url(#chart-clip)">
-                  <g transform={`translate(${-panX}, 0)`}>
-                    {Array.from({ length: data.periods }).map((_, i) => (
-                      <line key={`grid-x-${i}`} x1={getX(i)} y1={CHART_Y_START} x2={getX(i)} y2={SVG_HEIGHT - FOOTER_H} stroke="#CBD5E1" strokeWidth="2" strokeDasharray="6 6" />
-                    ))}
-                    <g clipPath="url(#reveal-clip)">
-                      {computedItems.map((item) => (
-                        Math.min(...(item.ranks.length > 0 ? item.ranks : [1])) <= safeTopN && (
-                          <path key={`path-${item.id}`} d={generatePath(item)} fill="none" stroke={item.color} strokeWidth={LINE_WIDTH} strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
-                        )
-                      ))}
-                    </g>
-                    {/* RENDERER MARKER DINAMIS */}
+
+                {/* ========================================================================
+                                      MODE 2: BAR CHART RACE
+                    ======================================================================== */}
+                {chartType === 'bar' && (
+                  <g>
+                    {/* WATERMARK TAHUN BAR CHART */}
+                    <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
+                      {data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + Math.floor(progress)}` : `${Number(data.startPeriod || 1) + Math.floor(progress)}`}
+                    </text>
+
+                    <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
+                    
                     {computedItems.map((item) => {
                       const pos = getMarkerPos(item, progress);
-                      if (pos.rank > safeTopN + 1.5) return null; 
-
+                      if (pos.rank > safeTopN + 1) return null; 
+                      
                       const hasLogo = item.logo && item.logo.trim() !== '';
-
-                      // === LOGIKA POP-UP PENCAPAIAN (SAAT ANGKA BERTAMBAH) ===
-                      const w1 = Math.floor(progress);
-                      const w2 = Math.min(w1 + 1, data.periods - 1);
-                      const t = progress - w1;
-                      const pts1 = getSafePts(item.points, w1);
-                      const pts2 = getSafePts(item.points, w2);
-                      const gain = pts2 - pts1;
-
-                      let popupNode = null;
-                      if (gain > 0 && popupEffect !== 'none') {
-                        // Efek Fade In & Fade Out berdasarkan progress transisi
-                        const popupOpacity = t < 0.2 ? t / 0.2 : (t > 0.7 ? (1 - t) / 0.3 : 1);
-                        // Efek melayang ke atas
-                        const floatY = -NODE_OUTER_R - 10 - (t * 30);
-                        
-                        let popupText = `+${gain}`;
-                        if (popupEffect === 'trophy') popupText += ' 🏆';
-                        if (popupEffect === 'star') popupText += ' ⭐';
-
-                        popupNode = (
-                          <text y={floatY} dominantBaseline="middle" textAnchor="middle" fill={item.color} fontSize={FONT_NODE * 1.5} fontWeight="900" opacity={popupOpacity} style={{ fontFamily: 'sans-serif', filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,0.3))' }}>
-                            {popupText}
-                          </text>
-                        );
-                      }
-
-                      const renderLogoOnly = () => (
-                        <g>
-                          {popupNode}
-                          <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
-                          {hasLogo ? (
-                            <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath={`url(#logo-clip-${item.id})`} preserveAspectRatio="xMidYMid slice" />
-                          ) : (
-                            <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
-                          )}
-                        </g>
-                      );
-
-                      const renderNameOnly = () => (
-                        <g>
-                          {popupNode}
-                          <circle r={NODE_OUTER_R} fill="#FFFFFF" stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
-                          <text y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
-                        </g>
-                      );
-
-                      const renderBoth = () => {
-                        const PILL_WIDTH = NODE_OUTER_R * 3.8; 
-                        return (
-                          <g>
-                            {popupNode}
-                            <rect x={-NODE_OUTER_R} y={-NODE_OUTER_R} width={PILL_WIDTH} height={NODE_OUTER_R * 2} fill="#FFFFFF" rx={NODE_OUTER_R} stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter="url(#clean-shadow)" />
-                            {hasLogo ? (
-                              <image href={item.logo} x={-NODE_INNER_R} y={-NODE_INNER_R} height={NODE_INNER_R * 2} width={NODE_INNER_R * 2} clipPath={`url(#logo-clip-${item.id})`} preserveAspectRatio="xMidYMid slice" />
-                            ) : (
-                              <g>
-                                <circle cx="0" cy="0" r={NODE_INNER_R} fill={item.color} />
-                                <text x="0" y="2" dominantBaseline="middle" textAnchor="middle" fill="#FFFFFF" fontSize={FONT_NODE * 0.6} fontWeight="900" style={{ fontFamily: 'monospace' }}>#</text>
-                              </g>
-                            )}
-                            <text x={NODE_OUTER_R * 1.3} y="2" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_NODE * 1.1} fontWeight="900" style={{ fontFamily: 'monospace' }}>{item.id}</text>
-                          </g>
-                        );
-                      };
+                      const barWidth = currentMaxVal === 0 ? 0 : Math.max(10, (pos.val / currentMaxVal) * BAR_MAX_WIDTH);
+                      const currentEmoji = getSafeEmoji(item.points, Math.floor(progress));
 
                       return (
-                        <g key={`marker-${item.id}`} transform={`translate(${pos.x}, ${pos.y})`}>
-                          {markerStyle === 'logo' && renderLogoOnly()}
-                          {markerStyle === 'name' && renderNameOnly()}
-                          {markerStyle === 'both' && renderBoth()}
+                        <g key={`bar-${item.id}`} transform={`translate(${BAR_START_X}, ${pos.y})`} style={{ transition: 'opacity 0.2s ease-in-out' }} opacity={pos.rank > safeTopN ? Math.max(0, 1 - (pos.rank - safeTopN)) : 1}>
+                          
+                          <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill={item.color} rx={BAR_HEIGHT / 2} opacity="0.9" />
+                          
+                          {barWidth > 150 && (
+                            <text x={BAR_HEIGHT / 1.5} y="3" dominantBaseline="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.5} fontWeight="900" style={{ fontFamily: 'sans-serif', filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,0.6))' }}>
+                              {item.name || item.id}
+                            </text>
+                          )}
+
+                          <text x={barWidth + 20} y="3" dominantBaseline="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.8} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
+                            {formatValue(pos.val)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
+                          </text>
+
+                          <g transform={`translate(${-BAR_LOGO_R - 15}, 0)`}>
+                            <circle cx="0" cy="0" r={BAR_LOGO_R} fill="#1E293B" stroke={item.color} strokeWidth="4" filter="url(#clean-shadow)" />
+                            {hasLogo ? (
+                              <image href={item.logo} x={-BAR_LOGO_R} y={-BAR_LOGO_R} height={BAR_LOGO_R * 2} width={BAR_LOGO_R * 2} clipPath="url(#bar-logo-clip)" preserveAspectRatio="xMidYMid slice" />
+                            ) : (
+                              <text x="0" y="3" dominantBaseline="middle" textAnchor="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.5} fontWeight="900">{item.id}</text>
+                            )}
+                          </g>
+
                         </g>
                       );
                     })}
                   </g>
-                </g>
-                
-                {/* === 6. KOLOM LIVE POINTS === */}
-                <g>
-                  <rect x={SVG_WIDTH - RIGHT_HUD_W} y={CHART_Y_START} width={RIGHT_HUD_W} height={CHART_HEIGHT} fill="#F8FAFC" />
-                  <line x1={SVG_WIDTH - RIGHT_HUD_W} y1={HEADER_H} x2={SVG_WIDTH - RIGHT_HUD_W} y2={SVG_HEIGHT - FOOTER_H} stroke="#CBD5E1" strokeWidth="2" />
-                </g>
+                )}
 
-                <g clipPath="url(#hud-clip)">
-                  {computedItems.map((item) => {
-                    const pos = getMarkerPos(item, progress);
-                    if (pos.rank > safeTopN + 1.5) return null; 
-                    
-                    const w1 = Math.floor(progress);
-                    const w2 = Math.min(w1 + 1, data.periods - 1);
-                    const t = progress - w1;
-                    const pts1 = getSafePts(item.points, w1);
-                    const pts2 = getSafePts(item.points, w2);
-                    const smoothedPts = Math.round(lerp(pts1, pts2, easeInOutSine(t))); 
-                    
-                    return (
-                      <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - RIGHT_HUD_W}, ${pos.y})`}>
-                        <rect x="30" y={-PILL_H / 2} width={RIGHT_HUD_W - 60} height={PILL_H} fill="#FFFFFF" rx={PILL_R} stroke={item.color} strokeWidth="3" filter="url(#clean-shadow)" />
-                        <text x={RIGHT_HUD_W / 2} y="0" dominantBaseline="middle" textAnchor="middle" fill="#0F172A" fontSize={FONT_HUD} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
-                          {smoothedPts}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </g>
               </svg>
             </div>
           </div>
@@ -606,7 +656,7 @@ export default function App() {
     return (
       <div className="flex-1 bg-slate-50 overflow-hidden flex flex-col relative" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* === MODAL MAGIC IMPORT (PROMPT AI DIPERKUAT) === */}
+        {/* === MODAL MAGIC IMPORT === */}
         {showImportModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
             <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -621,11 +671,11 @@ export default function App() {
               </div>
               <div className="p-6 flex-1 flex flex-col gap-4 bg-slate-100">
                 <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
-                  <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Anti-Halusinasi & Sangat Valid)</h3>
+                  <h3 className="text-sm font-black text-blue-800 mb-2 flex items-center gap-2">💡 Template Prompt AI (Mendukung Fitur Milestone)</h3>
                   <textarea 
                     readOnly 
                     className="w-full h-44 p-3 bg-blue-50 text-slate-700 text-xs font-mono rounded-lg border border-blue-200 outline-none resize-none selection:bg-blue-300 leading-relaxed"
-                    value={`Tolong lakukan riset historis yang VALID, MENDALAM dan KOMPREHENSIF untuk mencari data tentang 10 besar [GANTI TOPIK, cth: Perusahaan Teknologi Terkaya di Dunia].\n\nSaya butuh data perkembangan kumulatif mereka selama 12 [GANTI PERIODE, cth: Tahun] terakhir. \n\nSYARAT MUTLAK:\n1. Jangan menebak angka. Pastikan Anda membandingkan data dari berbagai sumber terpercaya lokal maupun internasional sebelum menulisnya.\n2. Output HANYA berupa TABEL. Kolom 1 = Nama Entitas. Kolom 2 dst = Angka setiap periodenya.\n3. Angka WAJIB ditulis MURNI tanpa titik, tanpa koma, dan tanpa huruf (cth: 1500000).\n4. Dilarang memberikan teks penjelasan apapun selain tabel.`}
+                    value={`Tolong lakukan riset historis untuk 10 besar [GANTI TOPIK, cth: Tim Bola] selama 12 [GANTI PERIODE, cth: Tahun] terakhir.\n\nSYARAT MUTLAK:\n1. Output HANYA berupa TABEL. Kolom 1 = Nama Entitas. Kolom 2 dst = Angka setiap periodenya.\n2. Angka WAJIB murni tanpa titik/koma (cth: 1500000).\n3. JIKA entitas tersebut meraih PENCAPAIAN/JUARA di tahun tersebut, tambahkan Emoji relevan di sebelah angkanya! (Contoh ketikan di tabel: 95 🏆 atau 100000 🥈). \n4. Dilarang memberikan teks penjelasan apapun selain tabel.`}
                   />
                 </div>
                 <textarea 
@@ -669,7 +719,7 @@ export default function App() {
         <div className="p-6 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm">
           <div>
             <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Database className="text-blue-600"/> Data Table Editor</h1>
-            <p className="text-sm text-slate-500 mt-1">Input scores/points here. Ranks will be calculated automatically.</p>
+            <p className="text-sm text-slate-500 mt-1">Ketik angka biasa, ATAU ketik Angka dan Emoji (cth: "95 🏆") untuk membuat penanda sejarah!</p>
           </div>
           <div className="flex gap-2">
             <button onClick={() => setShowClearModal(true)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow transition-all">
@@ -694,7 +744,7 @@ export default function App() {
                     {Array.from({ length: data.periods }).map((_, i) => {
                       const displayLabel = data.periodPrefix ? `${data.periodPrefix} ${Number(data.startPeriod || 1) + i}` : `${Number(data.startPeriod || 1) + i}`;
                       return (
-                        <th key={`th-${i}`} className="px-3 py-4 text-center min-w-[80px]">{displayLabel}</th>
+                        <th key={`th-${i}`} className="px-3 py-4 text-center min-w-[100px]">{displayLabel}</th>
                       );
                     })}
                     <th className="px-4 py-4 text-center">Action</th>
@@ -718,10 +768,11 @@ export default function App() {
                       {Array.from({ length: data.periods }).map((_, wIndex) => (
                         <td key={`td-${item.originalIndex}-${wIndex}`} className="px-1 py-3 text-center">
                           <input 
-                            type="number" 
+                            type="text" 
                             value={item.points && item.points[wIndex] !== undefined ? item.points[wIndex] : ''} 
                             onChange={(e) => handlePointChange(item.originalIndex, wIndex, e.target.value)} 
-                            className="w-16 p-2 border border-slate-200 rounded text-center font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+                            className="w-full min-w-[80px] p-2 border border-slate-200 rounded text-center font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                            placeholder="Cth: 95 🏆"
                           />
                         </td>
                       ))}
