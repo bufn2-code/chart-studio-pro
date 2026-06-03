@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Play, Pause, RotateCcw, Calculator, Download } from 'lucide-react';
+import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Play, Pause, RotateCcw, Calculator } from 'lucide-react';
 
 // ============================================================================
 // DATA BAWAAN LENGKAP
@@ -50,7 +50,6 @@ export default function App() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [showClearModal, setShowClearModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
   const [isCumulativeApplied, setIsCumulativeApplied] = useState(false);
 
   const [progress, setProgress] = useState(0);
@@ -230,10 +229,8 @@ export default function App() {
     const safeTopN = Math.max(topN, 2); 
     const rowHeight = CHART_HEIGHT / safeTopN; 
 
-    // ========================================================================
-    // PERBAIKAN: RUANG ANTI-TERPOTONG UNTUK LINE CHART
-    // ========================================================================
-    const LINE_RIGHT_HUD_W = isVertical ? 340 : 420; // Diperlebar agar angka Miliar muat
+    // --- MARGIN & LAYOUT SETUP ---
+    const LINE_RIGHT_HUD_W = isVertical ? 340 : 420; 
     const LINE_RANK_X = isVertical ? 60 : 100;       
     const LINE_START_X = isVertical ? 180 : 250;     
     const LINE_CHART_WIDTH = SVG_WIDTH - LINE_START_X - LINE_RIGHT_HUD_W - (isVertical ? 40 : 60); 
@@ -243,9 +240,6 @@ export default function App() {
     const FONT_NODE = Math.max(NODE_INNER_R * 0.6, 16); 
     const clipLeftX = LINE_START_X - (NODE_OUTER_R * 2);
 
-    // ========================================================================
-    // PERBAIKAN: RUANG ANTI-TERPOTONG UNTUK BAR CHART
-    // ========================================================================
     const effectiveRowHeight = chartType === 'bar' ? Math.min(CHART_HEIGHT / safeTopN, isVertical ? 130 : 110) : rowHeight;
     const BAR_HEIGHT = effectiveRowHeight * 0.65;
     const BAR_LOGO_R = BAR_HEIGHT / 2;
@@ -258,8 +252,6 @@ export default function App() {
     const totalLeftMargin = (showName ? nameWidthApprox : 0) + logoWidthApprox + 25;
 
     const BAR_START_X = isVertical ? Math.max(120, totalLeftMargin + 40) : Math.max(200, totalLeftMargin + 60); 
-    
-    // Cadangan ekstra lebar di sisi kanan bar untuk menampung angka panjang (Miliaran)
     const rightMarginReserve = isVertical ? 380 : 450; 
     const BAR_MAX_WIDTH = Math.max(100, SVG_WIDTH - BAR_START_X - rightMarginReserve); 
     
@@ -281,16 +273,12 @@ export default function App() {
     const PILL_H = Math.min(rowHeight * 0.7, 80);
     const PILL_R = PILL_H / 2;
 
-    // ========================================================================
-    // PERBAIKAN: FORMAT FOOTER (KAPITAL, GANTI LOGO YOUTUBE)
-    // ========================================================================
     const footerRaw = data.footerText || "GLOBECHART";
     const footerString = footerRaw.replace('@', '').toUpperCase();
     const iconSize = FONT_FOOT * 1.5;
     const estTextWidth = footerString.length * (FONT_FOOT * 0.7);
     const totalFooterWidth = iconSize + 15 + estTextWidth;
     const footerStartX = (SVG_WIDTH - totalFooterWidth) / 2;
-
 
     const VISIBLE_WEEKS = isVertical ? 4 : 6;
     const activeVisiblePeriods = Math.min(data.periods, VISIBLE_WEEKS);
@@ -299,12 +287,13 @@ export default function App() {
     const panThreshold = Math.max(1, activeVisiblePeriods - 2); 
     const panX = Math.max(0, progress - 1 - panThreshold) * LINE_SPACING;
 
-    // --- LOGIKA ANIMASI & INTRO PHASE ---
+    // ========================================================================
+    // ENGINE BARU: ABSOLUTE RANK INTERPOLATION (SANGAT HALUS & ANTI-TINDIH)
+    // ========================================================================
     const getEasedT = (t, style) => {
       if (style === 'linear') return t;
-      if (style === 'smooth') return t * t * (3 - 2 * t); 
-      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
-      return t;
+      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // Cubic easing
+      return -(Math.cos(Math.PI * t) - 1) / 2; // Sine easing (Smooth mutlak untuk Bar Chart)
     };
     
     const lerp = (start, end, t) => start + (end - start) * t;
@@ -313,101 +302,59 @@ export default function App() {
     let currentValsForBar = [];
     
     if (chartType === 'bar') {
-      let baseMax = 1;
-      computedItems.forEach(item => {
-        const v0 = getSafePts(item.points, 0);
-        if (v0 > baseMax) baseMax = v0;
-      });
-
-      const floorP = Math.floor(progress);
-      const w1 = floorP - 1; 
-      const w2 = Math.min(floorP, data.periods - 1);
-      const t = progress - floorP;
+      const currentPeriodIndex = Math.floor(progress); 
+      const t = progress - currentPeriodIndex; 
       const easedT = getEasedT(t, animStyle); 
-      
+
       currentValsForBar = computedItems.map(item => {
-        const v1 = w1 < 0 ? 0 : getSafePts(item.points, w1);
-        const v2 = getSafePts(item.points, w2);
-        const val = lerp(v1, v2, easedT);
+        let r1, r2, v1, v2;
         
-        const valWithTieBreaker = val + ((1000 - item.originalIndex) * 0.000001);
-        if (progress >= 1) {
-          if (val > currentMaxVal) currentMaxVal = val;
+        if (currentPeriodIndex === 0) {
+          // FASE 0 (INTRO): Mulai dari posisi tabel Editor, menyebar menuju Ranking 1 sebenarnya
+          r1 = item.originalIndex + 1;
+          r2 = item.ranks[0] || 1;
+          v1 = 0;
+          v2 = getSafePts(item.points, 0);
+        } else {
+          // FASE NORMAL: Bertukar peringkat dengan sangat rapi
+          const p1 = currentPeriodIndex - 1;
+          const p2 = Math.min(p1 + 1, data.periods - 1);
+          r1 = item.ranks[p1] || 1;
+          r2 = item.ranks[p2] || 1;
+          v1 = getSafePts(item.points, p1);
+          v2 = getSafePts(item.points, p2);
         }
-        return { ...item, currentVal: valWithTieBreaker, rawVal: val };
+
+        const currentRank = lerp(r1, r2, easedT);
+        const currentVal = lerp(v1, v2, easedT);
+        
+        return { ...item, currentRank, currentVal, rawVal: currentVal };
       });
 
-      if (progress < 1) currentMaxVal = baseMax; 
-
-      if (progress < 1) {
-        currentValsForBar.forEach(item => {
-          const startRank = item.originalIndex + 1;
-          const targetRank = item.ranks[0] || 1;
-          item.currentRank = lerp(startRank, targetRank, easedT);
-        });
-      } else {
-        const swapMargin = Math.max(0.0001, currentMaxVal * 0.015); 
-        currentValsForBar.forEach(item => {
-          let r = 1;
-          for (let other of currentValsForBar) {
-            if (other.id === item.id) continue;
-            const diff = other.currentVal - item.currentVal;
-            if (diff > swapMargin) {
-              r += 1;
-            } else if (diff > -swapMargin) {
-              const norm = (diff + swapMargin) / (2 * swapMargin);
-              r += norm * norm * (3 - 2 * norm);
-            }
-          }
-          item.currentRank = r;
-        });
-      }
+      // Skala batang merespon dinamis dengan mulus!
+      currentMaxVal = Math.max(10, ...currentValsForBar.map(i => i.currentVal));
     }
 
+    const displayPeriodIndex = Math.max(0, Math.min(Math.floor(Math.max(0, progress - 1)), data.periods - 1));
+    const displayLabelText = getLabel(displayPeriodIndex);
     const formatValue = (val) => new Intl.NumberFormat('en-US').format(Math.round(val));
 
     return (
       <div className="flex flex-1 overflow-hidden relative">
-        {/* MODAL EXPORT */}
-        {showExportModal && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-6">
-            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><Download className="text-blue-600"/> Panduan Ekspor ke MP4</h2>
-                <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600 p-2"><X size={20}/></button>
-              </div>
-              <div className="p-6 bg-white space-y-4">
-                <p className="text-slate-600 text-sm font-medium">Aplikasi ini mendukung ekspor menggunakan teknologi <b>Remotion</b>. Anda bisa merendernya secara programatik di komputer lokal Anda menggunakan React.</p>
-                <div className="bg-slate-100 p-4 rounded-xl space-y-2 border border-slate-200">
-                  <p className="text-xs font-bold text-slate-500 uppercase">Perintah Render (Setup Lokal)</p>
-                  <code className="block w-full p-3 bg-slate-800 text-yellow-400 text-sm font-mono rounded-lg shadow-inner">npx remotion render src/export.jsx ChartStudio out/video.mp4</code>
-                </div>
-              </div>
-              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
-                <button onClick={() => setShowExportModal(false)} className="px-6 py-2.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all">Tutup</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PANEL PENGATURAN KIRI */}
+        {/* PANEL PENGATURAN KIRI (TANPA EXPORT) */}
         <div className="w-[350px] bg-white border-r border-slate-200 shadow-xl z-10 flex flex-col p-6 overflow-y-auto shrink-0">
           <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"><Sliders size={20} className="text-blue-600"/> Animation Setup</h2>
           
           <div className="space-y-6">
-            <button onClick={() => setShowExportModal(true)} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-black transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-              <Download size={20} /> EKSPOR KE MP4
-            </button>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
               <button onClick={() => {
                 if (!isPlaying) prevTime.current = undefined; 
                 setIsPlaying(!isPlaying);
-              }} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-black transition-all shadow-md mb-2">
-                {isPlaying ? <Pause size={20} /> : <Play size={20} />} {isPlaying ? 'PAUSE' : 'PLAY'}
+              }} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black transition-all shadow-md mb-3 transform hover:-translate-y-0.5">
+                {isPlaying ? <Pause size={20} /> : <Play size={20} />} {isPlaying ? 'PAUSE ANIMASI' : 'PLAY ANIMASI'}
               </button>
-              <button onClick={resetAnimation} className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 py-2 rounded-lg font-bold border border-slate-300">
-                <RotateCcw size={16} /> Reset
+              <button onClick={resetAnimation} className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 py-2.5 rounded-lg font-bold border border-slate-300 transition-colors">
+                <RotateCcw size={16} /> Reset ke 0%
               </button>
             </div>
 
@@ -422,6 +369,7 @@ export default function App() {
               <div className="pt-2">
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Kecepatan Video</label>
                 <div className="flex gap-2">
+                  {/* DITAMBAHKAN KECEPATAN 0.25x UNTUK SINEMATIK */}
                   {[0.25, 0.5, 1, 1.5, 2].map(s => (
                     <button key={s} onClick={() => setSpeed(s)} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${speed === s ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>{s}x</button>
                   ))}
@@ -581,7 +529,7 @@ export default function App() {
 
                   <g clipPath="url(#chart-clip)">
                     <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill={isDarkBg ? '#334155' : '#CBD5E1'} fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
-                      {getLabel(Math.min(Math.max(0, Math.floor(progress)), Math.max(0, data.periods - 1)))}
+                      {displayLabelText}
                     </text>
                   </g>
 
@@ -635,32 +583,21 @@ export default function App() {
                       </g>
 
                       {computedItems.map((item) => {
-                        const getEasedTLine = (t, style) => {
-                          if (style === 'linear') return t;
-                          if (style === 'smooth') return t * t * (3 - 2 * t); 
-                          if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
-                          return t;
-                        };
-                        const floorP = Math.floor(progress);
-                        const w1 = floorP - 1; 
-                        const w2 = Math.min(floorP, data.periods - 1);
-                        const t = progress - floorP;
-                        const easedT = getEasedTLine(t, animStyle); 
-                        
                         let currentR;
+                        const floorP = Math.floor(progress);
+                        const t = progress - floorP;
+                        const easedT = getEasedT(t, animStyle);
+
                         if (progress < 1) {
                           currentR = lerp(item.originalIndex + 1, item.ranks[0] || 1, easedT);
                         } else {
+                          const w1 = floorP - 1;
+                          const w2 = Math.min(floorP, data.periods - 1);
                           currentR = lerp(item.ranks[w1] || 1, item.ranks[w2] || 1, easedT);
                         }
 
-                        const x1 = Math.max(0, w1);
-                        const x2 = w2;
-                        const lineX = lerp(LINE_START_X + (x1 * LINE_SPACING), LINE_START_X + (x2 * LINE_SPACING), t);
-
-                        const v1 = w1 < 0 ? 0 : getSafePts(item.points, w1);
-                        const v2 = getSafePts(item.points, w2);
-                        const currentVal = lerp(v1, v2, easedT);
+                        const displayT = Math.max(0, progress - 1);
+                        const lineX = LINE_START_X + (displayT * LINE_SPACING);
 
                         if (currentR > safeTopN + 1.5) return null; 
                         const hasLogo = item.logo && item.logo.trim() !== '';
@@ -700,28 +637,21 @@ export default function App() {
                     <line x1={SVG_WIDTH - LINE_RIGHT_HUD_W} y1={HEADER_H} x2={SVG_WIDTH - LINE_RIGHT_HUD_W} y2={SVG_HEIGHT - FOOTER_H} stroke={isDarkBg ? '#334155' : '#CBD5E1'} strokeWidth="2" />
                     <g clipPath="url(#hud-clip)">
                       {computedItems.map((item) => {
-                        const getEasedTLine = (t, style) => {
-                          if (style === 'linear') return t;
-                          if (style === 'smooth') return t * t * (3 - 2 * t); 
-                          if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
-                          return t;
-                        };
-                        const floorP = Math.floor(progress);
-                        const w1 = floorP - 1; 
-                        const w2 = Math.min(floorP, data.periods - 1);
-                        const t = progress - floorP;
-                        const easedT = getEasedTLine(t, animStyle); 
-                        
                         let currentR;
+                        let currentVal = 0;
+                        const floorP = Math.floor(progress);
+                        const t = progress - floorP;
+                        const easedT = getEasedT(t, animStyle);
+
                         if (progress < 1) {
                           currentR = lerp(item.originalIndex + 1, item.ranks[0] || 1, easedT);
+                          currentVal = lerp(0, getSafePts(item.points, 0), easedT);
                         } else {
+                          const w1 = floorP - 1;
+                          const w2 = Math.min(floorP, data.periods - 1);
                           currentR = lerp(item.ranks[w1] || 1, item.ranks[w2] || 1, easedT);
+                          currentVal = lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), easedT);
                         }
-
-                        const v1 = w1 < 0 ? 0 : getSafePts(item.points, w1);
-                        const v2 = getSafePts(item.points, w2);
-                        const currentVal = lerp(v1, v2, easedT);
 
                         if (currentR > safeTopN + 1.5) return null; 
                         const applyFilter = chartTheme === 'neon' ? 'url(#neon-glow)' : 'url(#clean-shadow)';
@@ -743,81 +673,24 @@ export default function App() {
               {chartType === 'bar' && (
                 <g>
                   <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
-                    {getLabel(Math.min(Math.max(0, Math.floor(progress)), Math.max(0, data.periods - 1)))}
+                    {displayLabelText}
                   </text>
                   <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
                   
-                  {computedItems.map((item) => {
-                    const getEasedTBar = (t, style) => {
-                      if (style === 'linear') return t;
-                      if (style === 'smooth') return t * t * (3 - 2 * t); 
-                      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
-                      return t;
-                    };
-
-                    let baseMax = 1;
-                    computedItems.forEach(i => {
-                      const v0 = getSafePts(i.points, 0);
-                      if (v0 > baseMax) baseMax = v0;
-                    });
-
-                    const floorP = Math.floor(progress);
-                    const w1 = floorP - 1;
-                    const w2 = Math.min(floorP, data.periods - 1);
-                    const t = progress - floorP;
-                    const easedT = getEasedTBar(t, animStyle); 
-
-                    const v1 = w1 < 0 ? 0 : getSafePts(item.points, w1);
-                    const v2 = getSafePts(item.points, w2);
-                    const currentVal = lerp(v1, v2, easedT);
-                    const valWithTieBreaker = currentVal + ((1000 - item.originalIndex) * 0.000001);
-
-                    let cMaxVal = baseMax;
-                    if (progress >= 1) {
-                      cMaxVal = 1;
-                      computedItems.forEach(i => {
-                        const iv1 = w1 < 0 ? 0 : getSafePts(i.points, w1);
-                        const iv2 = getSafePts(i.points, w2);
-                        const ival = lerp(iv1, iv2, easedT);
-                        if (ival > cMaxVal) cMaxVal = ival;
-                      });
-                    }
-
-                    let currentRank = 1;
-                    if (progress < 1) {
-                      currentRank = lerp(item.originalIndex + 1, item.ranks[0] || 1, easedT);
-                    } else {
-                      const swapMargin = Math.max(0.0001, cMaxVal * 0.015);
-                      computedItems.forEach(other => {
-                        if (other.id === item.id) return;
-                        const ov1 = w1 < 0 ? 0 : getSafePts(other.points, w1);
-                        const ov2 = getSafePts(other.points, w2);
-                        const oval = lerp(ov1, ov2, easedT);
-                        const ovalWithTieBreaker = oval + ((1000 - other.originalIndex) * 0.000001);
-                        
-                        const diff = ovalWithTieBreaker - valWithTieBreaker;
-                        if (diff > swapMargin) {
-                          currentRank += 1;
-                        } else if (diff > -swapMargin) {
-                          const norm = (diff + swapMargin) / (2 * swapMargin);
-                          currentRank += norm * norm * (3 - 2 * norm);
-                        }
-                      });
-                    }
-
-                    if (currentRank > safeTopN + 1.5) return null; 
+                  {currentValsForBar.map((item) => {
+                    if (item.currentRank > safeTopN + 1.5) return null; 
                     
                     const hasLogo = item.logo && item.logo.trim() !== '';
-                    const barWidth = cMaxVal === 0 ? 0 : Math.max(5, (currentVal / cMaxVal) * BAR_MAX_WIDTH);
-                    const currentEmoji = getSafeEmoji(item.points, Math.min(Math.max(0, Math.floor(progress)), data.periods - 1));
+                    const barWidth = currentMaxVal === 0 ? 0 : Math.max(5, (item.rawVal / currentMaxVal) * BAR_MAX_WIDTH);
+                    const currentEmoji = getSafeEmoji(item.points, displayPeriodIndex);
 
                     const textMargin = isVertical ? 170 : 250; 
                     const logoOffset = showName ? -textMargin : -BAR_LOGO_R - 20;
 
-                    const barOpacity = currentRank > safeTopN ? Math.max(0, 1 - (currentRank - safeTopN)) : 1;
+                    const barOpacity = item.currentRank > safeTopN ? Math.max(0, 1 - (item.currentRank - safeTopN)) : 1;
                     const currentFilter = chartTheme === 'neon' ? 'url(#neon-glow)' : (chartTheme === 'glossy' ? 'url(#clean-shadow)' : '');
                     
-                    const posY = getY(currentRank);
+                    const posY = getY(item.currentRank);
 
                     return (
                       <g key={`bar-${item.id}`} transform={`translate(${BAR_START_X}, ${posY})`} opacity={barOpacity}>
@@ -828,7 +701,7 @@ export default function App() {
                         )}
                         
                         <text x={barWidth + 15} y="3" dominantBaseline="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_NODE * 1.8} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif' }}>
-                          {formatValue(currentVal)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
+                          {formatValue(item.rawVal)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
                         </text>
 
                         <g transform="translate(-20, 0)">
