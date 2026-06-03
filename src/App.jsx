@@ -995,7 +995,7 @@ export default function App() {
     const topKeywords = [`${baseKeyword} ranking`, `${baseKeyword} history`, `top ${baseKeyword}`, `${baseKeyword} ${unit} comparison`, `animated bar chart race`];
     const keywordsString = topKeywords.join(', ');
     
-    const shortsTitle = `EPIC ${data.title} Final Standings Animation! 🏆 #shorts`;
+    const shortsTitle = `${data.title} Final Standings Animation! 🏆 #shorts`;
     const shortsDesc = `The ultimate ${unit} race for ${data.title}! Who came out on top? Watch this satisfying data animation to find out! \n\nWe tracked the ${topKeywords[0]} and ${topKeywords[1]} to show you the true ${topKeywords[2]}.\n\nDrop a comment with your favorite team! 👇\n\n#${safeTitle.replace(/\s+/g, '')} #DataVisualization #Shorts`;
     const shortsTags = `${keywordsString}, data visualization, ${unit} history, #shorts`;
 
