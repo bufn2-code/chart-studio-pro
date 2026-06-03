@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Play, Pause, RotateCcw, Calculator } from 'lucide-react';
+import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Play, Pause, RotateCcw, Calculator, Download } from 'lucide-react';
 
 // ============================================================================
 // DATA BAWAAN LENGKAP
@@ -50,6 +50,7 @@ export default function App() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [isCumulativeApplied, setIsCumulativeApplied] = useState(false);
 
   const [progress, setProgress] = useState(0);
@@ -66,23 +67,17 @@ export default function App() {
   const computedItems = useMemo(() => {
     let newItems = JSON.parse(JSON.stringify(data.items));
     newItems.forEach((item, idx) => { item.ranks = []; item.originalIndex = idx; }); 
-    
     for (let w = 0; w < data.periods; w++) {
       let leaderboard = newItems.map(item => ({ originalIndex: item.originalIndex, pts: getSafePts(item.points, w), name: item.name || "" }));
-      
       leaderboard.sort((a, b) => {
-        // 1. Prioritaskan Poin Tertinggi
         if (b.pts !== a.pts) return b.pts - a.pts; 
-        // 2. Jika poin sama dan grafik sudah berjalan, pertahankan urutan peringkat sebelumnya (mencegah kedipan)
         if (w > 0) {
           const rankA = newItems[a.originalIndex].ranks[w-1];
           const rankB = newItems[b.originalIndex].ranks[w-1];
           if (rankA !== rankB) return (rankA || 0) - (rankB || 0);
         }
-        // 3. FIX AWALAN: Jika poin sama di awal (misal semua 0), urutkan sesuai posisi murni di Editor!
         return a.originalIndex - b.originalIndex; 
       });
-
       leaderboard.forEach((team, index) => { newItems[team.originalIndex].ranks[w] = index + 1; });
     }
     return newItems;
@@ -92,14 +87,13 @@ export default function App() {
     if (prevTime.current === undefined) prevTime.current = time;
     let deltaTime = time - prevTime.current;
     
-    // Safety lock untuk mencegah frame meloncat
     if (deltaTime > 100) deltaTime = 16; 
 
     const progressDelta = (deltaTime / 1000) * (speed * 1.5); 
     
     setProgress((prev) => {
       const next = prev + progressDelta;
-      const maxProgress = Math.max(data.periods - 1, 1);
+      const maxProgress = Math.max(data.periods, 1); 
       if (next >= maxProgress) { setIsPlaying(false); return maxProgress; }
       return next;
     });
@@ -236,10 +230,12 @@ export default function App() {
     const safeTopN = Math.max(topN, 2); 
     const rowHeight = CHART_HEIGHT / safeTopN; 
 
-    // --- LINE CHART SETUP ---
-    const LINE_RIGHT_HUD_W = isVertical ? 240 : 280; 
-    const LINE_RANK_X = isVertical ? 80 : 120;       
-    const LINE_START_X = isVertical ? 240 : 300;     
+    // ========================================================================
+    // PERBAIKAN: RUANG ANTI-TERPOTONG UNTUK LINE CHART
+    // ========================================================================
+    const LINE_RIGHT_HUD_W = isVertical ? 340 : 420; // Diperlebar agar angka Miliar muat
+    const LINE_RANK_X = isVertical ? 60 : 100;       
+    const LINE_START_X = isVertical ? 180 : 250;     
     const LINE_CHART_WIDTH = SVG_WIDTH - LINE_START_X - LINE_RIGHT_HUD_W - (isVertical ? 40 : 60); 
     const NODE_OUTER_R = Math.min(rowHeight * 0.4, isVertical ? 45 : 50);
     const NODE_INNER_R = NODE_OUTER_R * 0.85;
@@ -247,7 +243,9 @@ export default function App() {
     const FONT_NODE = Math.max(NODE_INNER_R * 0.6, 16); 
     const clipLeftX = LINE_START_X - (NODE_OUTER_R * 2);
 
-    // --- BAR CHART SETUP (DISEMPURNAKAN UNTUK SHORTS) ---
+    // ========================================================================
+    // PERBAIKAN: RUANG ANTI-TERPOTONG UNTUK BAR CHART
+    // ========================================================================
     const effectiveRowHeight = chartType === 'bar' ? Math.min(CHART_HEIGHT / safeTopN, isVertical ? 130 : 110) : rowHeight;
     const BAR_HEIGHT = effectiveRowHeight * 0.65;
     const BAR_LOGO_R = BAR_HEIGHT / 2;
@@ -255,16 +253,15 @@ export default function App() {
     const showLogo = markerStyle === 'logo' || markerStyle === 'both';
     const showName = markerStyle === 'name' || markerStyle === 'both';
 
-    // Kalkulasi Margin Dinamis Kiri
-    // Lebar cadangan untuk teks nama. Jika vertical (Shorts), kurangi agar muat.
     const nameWidthApprox = isVertical ? 180 : 260; 
     const logoWidthApprox = showLogo ? (BAR_LOGO_R * 2 + 15) : 0;
     const totalLeftMargin = (showName ? nameWidthApprox : 0) + logoWidthApprox + 25;
 
-    // BAR_START_X dipastikan tidak akan menabrak batas pinggir kiri
     const BAR_START_X = isVertical ? Math.max(120, totalLeftMargin + 40) : Math.max(200, totalLeftMargin + 60); 
-    // BAR_MAX_WIDTH dibatasi agar nilai di sebelah kanan bar tidak terpotong tepi layar
-    const BAR_MAX_WIDTH = SVG_WIDTH - BAR_START_X - (isVertical ? 180 : 250); 
+    
+    // Cadangan ekstra lebar di sisi kanan bar untuk menampung angka panjang (Miliaran)
+    const rightMarginReserve = isVertical ? 380 : 450; 
+    const BAR_MAX_WIDTH = Math.max(100, SVG_WIDTH - BAR_START_X - rightMarginReserve); 
     
     const totalBarsHeight = safeTopN * effectiveRowHeight;
     const yOffset = chartType === 'bar' ? Math.max(0, (CHART_HEIGHT - totalBarsHeight) / 2) : 0;
@@ -284,61 +281,124 @@ export default function App() {
     const PILL_H = Math.min(rowHeight * 0.7, 80);
     const PILL_R = PILL_H / 2;
 
+    // ========================================================================
+    // PERBAIKAN: FORMAT FOOTER (KAPITAL, GANTI LOGO YOUTUBE)
+    // ========================================================================
+    const footerRaw = data.footerText || "GLOBECHART";
+    const footerString = footerRaw.replace('@', '').toUpperCase();
+    const iconSize = FONT_FOOT * 1.5;
+    const estTextWidth = footerString.length * (FONT_FOOT * 0.7);
+    const totalFooterWidth = iconSize + 15 + estTextWidth;
+    const footerStartX = (SVG_WIDTH - totalFooterWidth) / 2;
+
+
     const VISIBLE_WEEKS = isVertical ? 4 : 6;
     const activeVisiblePeriods = Math.min(data.periods, VISIBLE_WEEKS);
     const LINE_SPACING = LINE_CHART_WIDTH / Math.max(activeVisiblePeriods - 1, 1);
+    
     const panThreshold = Math.max(1, activeVisiblePeriods - 2); 
-    const panX = Math.max(0, progress - panThreshold) * LINE_SPACING;
+    const panX = Math.max(0, progress - 1 - panThreshold) * LINE_SPACING;
 
-    // --- EASING FUNGSI ANIMASI (HALUS SEMPURNA) ---
+    // --- LOGIKA ANIMASI & INTRO PHASE ---
     const getEasedT = (t, style) => {
       if (style === 'linear') return t;
-      if (style === 'smooth') return t * t * (3 - 2 * t); // Smooth Sine - Sempurna untuk balapan bar chart
-      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // Agresif
+      if (style === 'smooth') return t * t * (3 - 2 * t); 
+      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
       return t;
     };
     
     const lerp = (start, end, t) => start + (end - start) * t;
-    
-    const getMarkerPos = (item, currentProgress) => {
-      const w1 = Math.floor(currentProgress);
-      const w2 = Math.min(w1 + 1, data.periods - 1);
-      const t = currentProgress - w1;
-      const easedT = getEasedT(t, animStyle); 
-      
-      const r1 = item.ranks[w1] || 1;
-      const r2 = item.ranks[w2] || 1;
-      const lineX = lerp(LINE_START_X + (w1 * LINE_SPACING), LINE_START_X + (w2 * LINE_SPACING), t);
-
-      return { 
-        x: chartType === 'line' ? lineX : 0, 
-        y: lerp(getY(r1), getY(r2), easedT), // <-- Rahasia gerakan vertikal yang mentega (buttery smooth)
-        rank: lerp(r1, r2, easedT),
-        val: lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), easedT) 
-      };
-    };
 
     let currentMaxVal = 1;
+    let currentValsForBar = [];
+    
     if (chartType === 'bar') {
+      let baseMax = 1;
       computedItems.forEach(item => {
-        const w1 = Math.floor(progress);
-        const w2 = Math.min(w1 + 1, data.periods - 1);
-        const t = progress - w1;
-        const easedT = getEasedT(t, animStyle); 
-        const val = lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), easedT);
-        if (val > currentMaxVal) currentMaxVal = val;
+        const v0 = getSafePts(item.points, 0);
+        if (v0 > baseMax) baseMax = v0;
       });
+
+      const floorP = Math.floor(progress);
+      const w1 = floorP - 1; 
+      const w2 = Math.min(floorP, data.periods - 1);
+      const t = progress - floorP;
+      const easedT = getEasedT(t, animStyle); 
+      
+      currentValsForBar = computedItems.map(item => {
+        const v1 = w1 < 0 ? 0 : getSafePts(item.points, w1);
+        const v2 = getSafePts(item.points, w2);
+        const val = lerp(v1, v2, easedT);
+        
+        const valWithTieBreaker = val + ((1000 - item.originalIndex) * 0.000001);
+        if (progress >= 1) {
+          if (val > currentMaxVal) currentMaxVal = val;
+        }
+        return { ...item, currentVal: valWithTieBreaker, rawVal: val };
+      });
+
+      if (progress < 1) currentMaxVal = baseMax; 
+
+      if (progress < 1) {
+        currentValsForBar.forEach(item => {
+          const startRank = item.originalIndex + 1;
+          const targetRank = item.ranks[0] || 1;
+          item.currentRank = lerp(startRank, targetRank, easedT);
+        });
+      } else {
+        const swapMargin = Math.max(0.0001, currentMaxVal * 0.015); 
+        currentValsForBar.forEach(item => {
+          let r = 1;
+          for (let other of currentValsForBar) {
+            if (other.id === item.id) continue;
+            const diff = other.currentVal - item.currentVal;
+            if (diff > swapMargin) {
+              r += 1;
+            } else if (diff > -swapMargin) {
+              const norm = (diff + swapMargin) / (2 * swapMargin);
+              r += norm * norm * (3 - 2 * norm);
+            }
+          }
+          item.currentRank = r;
+        });
+      }
     }
 
     const formatValue = (val) => new Intl.NumberFormat('en-US').format(Math.round(val));
 
     return (
       <div className="flex flex-1 overflow-hidden relative">
+        {/* MODAL EXPORT */}
+        {showExportModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-6">
+            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><Download className="text-blue-600"/> Panduan Ekspor ke MP4</h2>
+                <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600 p-2"><X size={20}/></button>
+              </div>
+              <div className="p-6 bg-white space-y-4">
+                <p className="text-slate-600 text-sm font-medium">Aplikasi ini mendukung ekspor menggunakan teknologi <b>Remotion</b>. Anda bisa merendernya secara programatik di komputer lokal Anda menggunakan React.</p>
+                <div className="bg-slate-100 p-4 rounded-xl space-y-2 border border-slate-200">
+                  <p className="text-xs font-bold text-slate-500 uppercase">Perintah Render (Setup Lokal)</p>
+                  <code className="block w-full p-3 bg-slate-800 text-yellow-400 text-sm font-mono rounded-lg shadow-inner">npx remotion render src/export.jsx ChartStudio out/video.mp4</code>
+                </div>
+              </div>
+              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
+                <button onClick={() => setShowExportModal(false)} className="px-6 py-2.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all">Tutup</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PANEL PENGATURAN KIRI */}
         <div className="w-[350px] bg-white border-r border-slate-200 shadow-xl z-10 flex flex-col p-6 overflow-y-auto shrink-0">
           <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"><Sliders size={20} className="text-blue-600"/> Animation Setup</h2>
           
           <div className="space-y-6">
+            <button onClick={() => setShowExportModal(true)} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-black transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+              <Download size={20} /> EKSPOR KE MP4
+            </button>
+
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
               <button onClick={() => {
                 if (!isPlaying) prevTime.current = undefined; 
@@ -355,14 +415,14 @@ export default function App() {
               <div>
                 <div className="flex justify-between text-xs mb-2 text-slate-600 font-bold">
                   <span>Progress</span>
-                  <span className="text-blue-600">{Math.floor((progress / Math.max((data.periods - 1), 1)) * 100)}%</span>
+                  <span className="text-blue-600">{Math.floor((progress / Math.max(data.periods, 1)) * 100)}%</span>
                 </div>
-                <input type="range" min="0" max={Math.max(data.periods - 1, 1)} step="0.01" value={progress} onChange={(e) => { setProgress(parseFloat(e.target.value)); setIsPlaying(false); prevTime.current = undefined; }} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                <input type="range" min="0" max={Math.max(data.periods, 1)} step="0.01" value={progress} onChange={(e) => { setProgress(parseFloat(e.target.value)); setIsPlaying(false); prevTime.current = undefined; }} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
               </div>
               <div className="pt-2">
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Kecepatan Video</label>
                 <div className="flex gap-2">
-                  {[0.5, 1, 1.5, 2].map(s => (
+                  {[0.25, 0.5, 1, 1.5, 2].map(s => (
                     <button key={s} onClick={() => setSpeed(s)} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${speed === s ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>{s}x</button>
                   ))}
                 </div>
@@ -451,6 +511,11 @@ export default function App() {
                   <input type="number" min="2" max={computedItems.length || 2} value={topN} onChange={(e) => setTopN(Math.max(2, Math.min(computedItems.length, Number(e.target.value))))} className="w-full text-sm p-2 bg-blue-50 border border-blue-200 rounded-lg outline-none font-bold text-blue-700" />
                 </div>
               </div>
+
+              <div className="pt-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Footer Text</label>
+                <input type="text" value={data.footerText} onChange={(e) => handleUpdateGeneral('footerText', e.target.value)} className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800" placeholder="@GlobeChart" />
+              </div>
             </div>
           </div>
         </div>
@@ -479,7 +544,7 @@ export default function App() {
                 <clipPath id="header-clip"><rect x={clipLeftX} y={HEADER_H} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={X_AXIS_H} /></clipPath>
                 <clipPath id="chart-clip"><rect x={clipLeftX} y={CHART_Y_START} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
                 <clipPath id="hud-clip"><rect x={SVG_WIDTH - LINE_RIGHT_HUD_W} y={CHART_Y_START} width={LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
-                <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + LINE_START_X + (progress * LINE_SPACING)} height="3000" /></clipPath>
+                <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + LINE_START_X + (Math.max(0, progress - 1) * LINE_SPACING)} height="3000" /></clipPath>
               </defs>
 
               {isDarkBg ? <use href="#dark-bg" /> : <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="#FFFFFF" />}
@@ -488,14 +553,22 @@ export default function App() {
                 <rect x="0" y="0" width={SVG_WIDTH} height={HEADER_H} fill={isDarkBg ? '#1E293B' : '#FFCA28'} />
                 <rect x="0" y={HEADER_H - 4} width={SVG_WIDTH} height="4" fill="#0F172A" />
                 <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_TITLE} fontWeight="900" letterSpacing="1" style={{ fontFamily: 'system-ui, sans-serif' }}>{data.title}</text>
+                
                 <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height={FOOTER_H} fill={isDarkBg ? '#1E293B' : '#FFCA28'} />
                 <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height="4" fill="#0F172A" />
-                <text x={SVG_WIDTH / 2} y={SVG_HEIGHT - (FOOTER_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_FOOT} fontWeight="900" letterSpacing="2" style={{ fontFamily: 'system-ui, sans-serif' }}>{data.footerText}</text>
+                
+                {/* FOOTER BARU: YOUTUBE LOGO & TULISAN KAPITAL */}
+                <g transform={`translate(${footerStartX}, ${SVG_HEIGHT - (FOOTER_H / 2)})`}>
+                  <svg x="0" y={-iconSize/2} width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="#FF0000">
+                    <path d="M21.582,6.186c-0.23-0.86-0.908-1.538-1.768-1.768C18.254,4,12,4,12,4S5.746,4,4.186,4.418c-0.86,0.23-1.538,0.908-1.768,1.768C2,7.746,2,12,2,12s0,4.254,0.418,5.814c0.23,0.86,0.908,1.538,1.768,1.768C5.746,20,12,20,12,20s6.254,0,7.814-0.418c0.86-0.23,1.538-0.908,1.768-1.768C22,16.254,22,12,22,12S22,7.746,21.582,6.186z M10,15.464V8.536L16,12L10,15.464z"/>
+                  </svg>
+                  <text x={iconSize + 15} y={2} dominantBaseline="middle" textAnchor="start" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_FOOT} fontWeight="900" letterSpacing="4" style={{ fontFamily: 'system-ui, sans-serif' }}>
+                    {footerString}
+                  </text>
+                </g>
               </g>
 
-              {/* ========================================================================
-                                    MODE 1: RACING LINE CHART
-                  ======================================================================== */}
+              {/* LINE CHART */}
               {chartType === 'line' && (
                 <g>
                   {Array.from({ length: safeTopN }).map((_, i) => (
@@ -508,7 +581,7 @@ export default function App() {
 
                   <g clipPath="url(#chart-clip)">
                     <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill={isDarkBg ? '#334155' : '#CBD5E1'} fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
-                      {getLabel(Math.floor(progress))}
+                      {getLabel(Math.min(Math.max(0, Math.floor(progress)), Math.max(0, data.periods - 1)))}
                     </text>
                   </g>
 
@@ -562,15 +635,41 @@ export default function App() {
                       </g>
 
                       {computedItems.map((item) => {
-                        const pos = getMarkerPos(item, progress);
-                        if (pos.rank > safeTopN + 1.5) return null; 
+                        const getEasedTLine = (t, style) => {
+                          if (style === 'linear') return t;
+                          if (style === 'smooth') return t * t * (3 - 2 * t); 
+                          if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
+                          return t;
+                        };
+                        const floorP = Math.floor(progress);
+                        const w1 = floorP - 1; 
+                        const w2 = Math.min(floorP, data.periods - 1);
+                        const t = progress - floorP;
+                        const easedT = getEasedTLine(t, animStyle); 
+                        
+                        let currentR;
+                        if (progress < 1) {
+                          currentR = lerp(item.originalIndex + 1, item.ranks[0] || 1, easedT);
+                        } else {
+                          currentR = lerp(item.ranks[w1] || 1, item.ranks[w2] || 1, easedT);
+                        }
+
+                        const x1 = Math.max(0, w1);
+                        const x2 = w2;
+                        const lineX = lerp(LINE_START_X + (x1 * LINE_SPACING), LINE_START_X + (x2 * LINE_SPACING), t);
+
+                        const v1 = w1 < 0 ? 0 : getSafePts(item.points, w1);
+                        const v2 = getSafePts(item.points, w2);
+                        const currentVal = lerp(v1, v2, easedT);
+
+                        if (currentR > safeTopN + 1.5) return null; 
                         const hasLogo = item.logo && item.logo.trim() !== '';
                         const showLogo = markerStyle === 'logo' || markerStyle === 'both';
                         const showName = markerStyle === 'name' || markerStyle === 'both';
                         const applyFilter = chartTheme === 'neon' ? 'url(#neon-glow)' : 'url(#clean-shadow)';
                         
                         return (
-                          <g key={`marker-${item.id}`} transform={`translate(${pos.x}, ${pos.y})`}>
+                          <g key={`marker-${item.id}`} transform={`translate(${lineX}, ${getY(currentR)})`}>
                             {showLogo && !showName && (
                               <g>
                                 <circle r={NODE_OUTER_R} fill={isDarkBg ? '#0F172A' : '#FFFFFF'} stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter={applyFilter} />
@@ -601,14 +700,36 @@ export default function App() {
                     <line x1={SVG_WIDTH - LINE_RIGHT_HUD_W} y1={HEADER_H} x2={SVG_WIDTH - LINE_RIGHT_HUD_W} y2={SVG_HEIGHT - FOOTER_H} stroke={isDarkBg ? '#334155' : '#CBD5E1'} strokeWidth="2" />
                     <g clipPath="url(#hud-clip)">
                       {computedItems.map((item) => {
-                        const pos = getMarkerPos(item, progress);
-                        if (pos.rank > safeTopN + 1.5) return null; 
+                        const getEasedTLine = (t, style) => {
+                          if (style === 'linear') return t;
+                          if (style === 'smooth') return t * t * (3 - 2 * t); 
+                          if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
+                          return t;
+                        };
+                        const floorP = Math.floor(progress);
+                        const w1 = floorP - 1; 
+                        const w2 = Math.min(floorP, data.periods - 1);
+                        const t = progress - floorP;
+                        const easedT = getEasedTLine(t, animStyle); 
+                        
+                        let currentR;
+                        if (progress < 1) {
+                          currentR = lerp(item.originalIndex + 1, item.ranks[0] || 1, easedT);
+                        } else {
+                          currentR = lerp(item.ranks[w1] || 1, item.ranks[w2] || 1, easedT);
+                        }
+
+                        const v1 = w1 < 0 ? 0 : getSafePts(item.points, w1);
+                        const v2 = getSafePts(item.points, w2);
+                        const currentVal = lerp(v1, v2, easedT);
+
+                        if (currentR > safeTopN + 1.5) return null; 
                         const applyFilter = chartTheme === 'neon' ? 'url(#neon-glow)' : 'url(#clean-shadow)';
                         return (
-                          <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - LINE_RIGHT_HUD_W}, ${pos.y})`}>
-                            <rect x="30" y={-PILL_H / 2} width={LINE_RIGHT_HUD_W - 60} height={PILL_H} fill={isDarkBg ? '#0F172A' : '#FFFFFF'} rx={PILL_R} stroke={item.color} strokeWidth="3" filter={applyFilter} />
+                          <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - LINE_RIGHT_HUD_W}, ${getY(currentR)})`}>
+                            <rect x="20" y={-PILL_H / 2} width={LINE_RIGHT_HUD_W - 40} height={PILL_H} fill={isDarkBg ? '#0F172A' : '#FFFFFF'} rx={PILL_R} stroke={item.color} strokeWidth="3" filter={applyFilter} />
                             <text x={LINE_RIGHT_HUD_W / 2} y="0" dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_HUD} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif' }}>
-                              {formatValue(pos.val)}
+                              {formatValue(currentVal)}
                             </text>
                           </g>
                         );
@@ -618,52 +739,98 @@ export default function App() {
                 </g>
               )}
 
-              {/* ========================================================================
-                                    MODE 2: BAR CHART RACE (BERSIH & ANTI-TABRAK)
-                  ======================================================================== */}
+              {/* BAR CHART RACE */}
               {chartType === 'bar' && (
                 <g>
                   <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
-                    {getLabel(Math.floor(progress))}
+                    {getLabel(Math.min(Math.max(0, Math.floor(progress)), Math.max(0, data.periods - 1)))}
                   </text>
                   <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
                   
                   {computedItems.map((item) => {
-                    const pos = getMarkerPos(item, progress);
-                    if (pos.rank > safeTopN + 1.5) return null; 
+                    const getEasedTBar = (t, style) => {
+                      if (style === 'linear') return t;
+                      if (style === 'smooth') return t * t * (3 - 2 * t); 
+                      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
+                      return t;
+                    };
+
+                    let baseMax = 1;
+                    computedItems.forEach(i => {
+                      const v0 = getSafePts(i.points, 0);
+                      if (v0 > baseMax) baseMax = v0;
+                    });
+
+                    const floorP = Math.floor(progress);
+                    const w1 = floorP - 1;
+                    const w2 = Math.min(floorP, data.periods - 1);
+                    const t = progress - floorP;
+                    const easedT = getEasedTBar(t, animStyle); 
+
+                    const v1 = w1 < 0 ? 0 : getSafePts(item.points, w1);
+                    const v2 = getSafePts(item.points, w2);
+                    const currentVal = lerp(v1, v2, easedT);
+                    const valWithTieBreaker = currentVal + ((1000 - item.originalIndex) * 0.000001);
+
+                    let cMaxVal = baseMax;
+                    if (progress >= 1) {
+                      cMaxVal = 1;
+                      computedItems.forEach(i => {
+                        const iv1 = w1 < 0 ? 0 : getSafePts(i.points, w1);
+                        const iv2 = getSafePts(i.points, w2);
+                        const ival = lerp(iv1, iv2, easedT);
+                        if (ival > cMaxVal) cMaxVal = ival;
+                      });
+                    }
+
+                    let currentRank = 1;
+                    if (progress < 1) {
+                      currentRank = lerp(item.originalIndex + 1, item.ranks[0] || 1, easedT);
+                    } else {
+                      const swapMargin = Math.max(0.0001, cMaxVal * 0.015);
+                      computedItems.forEach(other => {
+                        if (other.id === item.id) return;
+                        const ov1 = w1 < 0 ? 0 : getSafePts(other.points, w1);
+                        const ov2 = getSafePts(other.points, w2);
+                        const oval = lerp(ov1, ov2, easedT);
+                        const ovalWithTieBreaker = oval + ((1000 - other.originalIndex) * 0.000001);
+                        
+                        const diff = ovalWithTieBreaker - valWithTieBreaker;
+                        if (diff > swapMargin) {
+                          currentRank += 1;
+                        } else if (diff > -swapMargin) {
+                          const norm = (diff + swapMargin) / (2 * swapMargin);
+                          currentRank += norm * norm * (3 - 2 * norm);
+                        }
+                      });
+                    }
+
+                    if (currentRank > safeTopN + 1.5) return null; 
                     
                     const hasLogo = item.logo && item.logo.trim() !== '';
-                    // Bar Width memiliki nilai minimum agar tidak sepenuhnya hilang saat bernilai 0
-                    const barWidth = currentMaxVal === 0 ? 0 : Math.max(5, (pos.val / currentMaxVal) * BAR_MAX_WIDTH);
-                    const currentEmoji = getSafeEmoji(item.points, Math.floor(progress));
+                    const barWidth = cMaxVal === 0 ? 0 : Math.max(5, (currentVal / cMaxVal) * BAR_MAX_WIDTH);
+                    const currentEmoji = getSafeEmoji(item.points, Math.min(Math.max(0, Math.floor(progress)), data.periods - 1));
 
-                    // Margin & Offset Kalkulasi Ekstrem
-                    const showLogo = markerStyle === 'logo' || markerStyle === 'both';
-                    const showName = markerStyle === 'name' || markerStyle === 'both';
-                    
-                    // Jarak dinamis untuk Logo agar dipastikan bebas/tidak kaku menempel di bar
-                    // Jika ada nama, logo mundur sejauh ukuran teks. Jika tidak ada, mundur cukup 20px (ada napas)
                     const textMargin = isVertical ? 170 : 250; 
                     const logoOffset = showName ? -textMargin : -BAR_LOGO_R - 20;
 
-                    const barOpacity = pos.rank > safeTopN ? Math.max(0, 1 - (pos.rank - safeTopN)) : 1;
+                    const barOpacity = currentRank > safeTopN ? Math.max(0, 1 - (currentRank - safeTopN)) : 1;
                     const currentFilter = chartTheme === 'neon' ? 'url(#neon-glow)' : (chartTheme === 'glossy' ? 'url(#clean-shadow)' : '');
+                    
+                    const posY = getY(currentRank);
 
                     return (
-                      <g key={`bar-${item.id}`} transform={`translate(${BAR_START_X}, ${pos.y})`} opacity={barOpacity}>
+                      <g key={`bar-${item.id}`} transform={`translate(${BAR_START_X}, ${posY})`} opacity={barOpacity}>
                         
-                        {/* Batang Utama (Solid Pill Shape) */}
                         <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill={item.color} rx={BAR_HEIGHT / 2} opacity="0.95" filter={currentFilter} />
                         {chartTheme === 'glossy' && (
                           <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill="url(#gloss)" rx={BAR_HEIGHT / 2} opacity="0.4" />
                         )}
                         
-                        {/* Angka Poin & Emoji (Berjalan Mulus di sebelah Kanan Bar) */}
                         <text x={barWidth + 15} y="3" dominantBaseline="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_NODE * 1.8} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif' }}>
-                          {formatValue(pos.val)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
+                          {formatValue(currentVal)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
                         </text>
 
-                        {/* Grup Elemen Kiri (Mundur ke belakang batang) */}
                         <g transform="translate(-20, 0)">
                           {showName && (
                             <text x="0" y="3" dominantBaseline="middle" textAnchor="end" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={isVertical ? FONT_NODE * 1.4 : FONT_NODE * 1.6} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.4))' }}>
