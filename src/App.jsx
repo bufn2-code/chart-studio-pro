@@ -44,7 +44,7 @@ export default function App() {
   const [chartType, setChartType] = useState('bar'); 
   
   const [chartTheme, setChartTheme] = useState('glossy'); 
-  const [animStyle, setAnimStyle] = useState('dynamic'); 
+  const [animStyle, setAnimStyle] = useState('smooth'); 
 
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
@@ -66,17 +66,23 @@ export default function App() {
   const computedItems = useMemo(() => {
     let newItems = JSON.parse(JSON.stringify(data.items));
     newItems.forEach((item, idx) => { item.ranks = []; item.originalIndex = idx; }); 
+    
     for (let w = 0; w < data.periods; w++) {
       let leaderboard = newItems.map(item => ({ originalIndex: item.originalIndex, pts: getSafePts(item.points, w), name: item.name || "" }));
+      
       leaderboard.sort((a, b) => {
+        // 1. Prioritaskan Poin Tertinggi
         if (b.pts !== a.pts) return b.pts - a.pts; 
+        // 2. Jika poin sama dan grafik sudah berjalan, pertahankan urutan peringkat sebelumnya (mencegah kedipan)
         if (w > 0) {
           const rankA = newItems[a.originalIndex].ranks[w-1];
           const rankB = newItems[b.originalIndex].ranks[w-1];
-          return (rankA || 0) - (rankB || 0);
+          if (rankA !== rankB) return (rankA || 0) - (rankB || 0);
         }
-        return a.name.localeCompare(b.name); 
+        // 3. FIX AWALAN: Jika poin sama di awal (misal semua 0), urutkan sesuai posisi murni di Editor!
+        return a.originalIndex - b.originalIndex; 
       });
+
       leaderboard.forEach((team, index) => { newItems[team.originalIndex].ranks[w] = index + 1; });
     }
     return newItems;
@@ -86,7 +92,7 @@ export default function App() {
     if (prevTime.current === undefined) prevTime.current = time;
     let deltaTime = time - prevTime.current;
     
-    // Safety lock untuk mencegah frame meloncat jauh saat browser lag
+    // Safety lock untuk mencegah frame meloncat
     if (deltaTime > 100) deltaTime = 16; 
 
     const progressDelta = (deltaTime / 1000) * (speed * 1.5); 
@@ -249,9 +255,16 @@ export default function App() {
     const showLogo = markerStyle === 'logo' || markerStyle === 'both';
     const showName = markerStyle === 'name' || markerStyle === 'both';
 
-    // Jarak margin kiri untuk Bar ditarik jauh agar tulisan tidak pernah kepotong
-    const BAR_START_X = isVertical ? 450 : 500; 
-    const BAR_MAX_WIDTH = SVG_WIDTH - BAR_START_X - (isVertical ? 220 : 250); 
+    // Kalkulasi Margin Dinamis Kiri
+    // Lebar cadangan untuk teks nama. Jika vertical (Shorts), kurangi agar muat.
+    const nameWidthApprox = isVertical ? 180 : 260; 
+    const logoWidthApprox = showLogo ? (BAR_LOGO_R * 2 + 15) : 0;
+    const totalLeftMargin = (showName ? nameWidthApprox : 0) + logoWidthApprox + 25;
+
+    // BAR_START_X dipastikan tidak akan menabrak batas pinggir kiri
+    const BAR_START_X = isVertical ? Math.max(120, totalLeftMargin + 40) : Math.max(200, totalLeftMargin + 60); 
+    // BAR_MAX_WIDTH dibatasi agar nilai di sebelah kanan bar tidak terpotong tepi layar
+    const BAR_MAX_WIDTH = SVG_WIDTH - BAR_START_X - (isVertical ? 180 : 250); 
     
     const totalBarsHeight = safeTopN * effectiveRowHeight;
     const yOffset = chartType === 'bar' ? Math.max(0, (CHART_HEIGHT - totalBarsHeight) / 2) : 0;
@@ -277,12 +290,14 @@ export default function App() {
     const panThreshold = Math.max(1, activeVisiblePeriods - 2); 
     const panX = Math.max(0, progress - panThreshold) * LINE_SPACING;
 
-    // --- EASING FUNGSI ANIMASI ---
+    // --- EASING FUNGSI ANIMASI (HALUS SEMPURNA) ---
     const getEasedT = (t, style) => {
       if (style === 'linear') return t;
-      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
-      return t * t * (3 - 2 * t); 
+      if (style === 'smooth') return t * t * (3 - 2 * t); // Smooth Sine - Sempurna untuk balapan bar chart
+      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // Agresif
+      return t;
     };
+    
     const lerp = (start, end, t) => start + (end - start) * t;
     
     const getMarkerPos = (item, currentProgress) => {
@@ -290,54 +305,28 @@ export default function App() {
       const w2 = Math.min(w1 + 1, data.periods - 1);
       const t = currentProgress - w1;
       const easedT = getEasedT(t, animStyle); 
+      
       const r1 = item.ranks[w1] || 1;
       const r2 = item.ranks[w2] || 1;
       const lineX = lerp(LINE_START_X + (w1 * LINE_SPACING), LINE_START_X + (w2 * LINE_SPACING), t);
 
       return { 
         x: chartType === 'line' ? lineX : 0, 
-        y: lerp(getY(r1), getY(r2), easedT),
+        y: lerp(getY(r1), getY(r2), easedT), // <-- Rahasia gerakan vertikal yang mentega (buttery smooth)
         rank: lerp(r1, r2, easedT),
-        val: lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), t) // Note: Line value is strict
+        val: lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), easedT) 
       };
     };
 
-    // --- MESIN BAR CHART RACE (RANKING BERKELANJUTAN ANTI LOMPAT) ---
-    // Di sini kita menghitung nilai asli setiap frame, lalu menentukan peringkat dinamis
     let currentMaxVal = 1;
-    let currentValsForBar = [];
-    
     if (chartType === 'bar') {
-      const w1 = Math.floor(progress);
-      const w2 = Math.min(w1 + 1, data.periods - 1);
-      const t = progress - w1;
-      const easedT = getEasedT(t, animStyle); 
-      
-      currentValsForBar = computedItems.map(item => {
+      computedItems.forEach(item => {
+        const w1 = Math.floor(progress);
+        const w2 = Math.min(w1 + 1, data.periods - 1);
+        const t = progress - w1;
+        const easedT = getEasedT(t, animStyle); 
         const val = lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), easedT);
-        // Tie-breaker halus agar baris tidak pernah menumpuk tumpang tindih 100%
-        const valWithTieBreaker = val + ((1000 - item.originalIndex) * 0.000001);
         if (val > currentMaxVal) currentMaxVal = val;
-        return { ...item, currentVal: valWithTieBreaker };
-      });
-
-      // Margin untuk animasi transisi saling menyalip (1.5% dari nilai tertinggi)
-      const swapMargin = Math.max(0.0001, currentMaxVal * 0.015); 
-      
-      currentValsForBar.forEach(item => {
-        let r = 1;
-        for (let other of currentValsForBar) {
-          if (other.id === item.id) continue;
-          const diff = other.currentVal - item.currentVal;
-          if (diff > swapMargin) {
-            r += 1;
-          } else if (diff > -swapMargin) {
-            // Smoothstep transisi vertikal saat menyalip!
-            const norm = (diff + swapMargin) / (2 * swapMargin);
-            r += norm * norm * (3 - 2 * norm);
-          }
-        }
-        item.currentRank = r;
       });
     }
 
@@ -498,10 +487,10 @@ export default function App() {
               <g>
                 <rect x="0" y="0" width={SVG_WIDTH} height={HEADER_H} fill={isDarkBg ? '#1E293B' : '#FFCA28'} />
                 <rect x="0" y={HEADER_H - 4} width={SVG_WIDTH} height="4" fill="#0F172A" />
-                <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_TITLE} fontWeight="900" letterSpacing="1" style={{ fontFamily: 'sans-serif' }}>{data.title}</text>
+                <text x={SVG_WIDTH / 2} y={HEADER_H / 2 + 5} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_TITLE} fontWeight="900" letterSpacing="1" style={{ fontFamily: 'system-ui, sans-serif' }}>{data.title}</text>
                 <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height={FOOTER_H} fill={isDarkBg ? '#1E293B' : '#FFCA28'} />
                 <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height="4" fill="#0F172A" />
-                <text x={SVG_WIDTH / 2} y={SVG_HEIGHT - (FOOTER_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_FOOT} fontWeight="900" letterSpacing="2" style={{ fontFamily: 'sans-serif' }}>{data.footerText}</text>
+                <text x={SVG_WIDTH / 2} y={SVG_HEIGHT - (FOOTER_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_FOOT} fontWeight="900" letterSpacing="2" style={{ fontFamily: 'system-ui, sans-serif' }}>{data.footerText}</text>
               </g>
 
               {/* ========================================================================
@@ -513,12 +502,12 @@ export default function App() {
                     <g key={`line-bg-${i}`}>
                       {i % 2 === 0 && <rect x="0" y={getY(i + 1) - (effectiveRowHeight / 2)} width={SVG_WIDTH} height={effectiveRowHeight} fill={isDarkBg ? '#1E293B' : '#F8FAFC'} opacity={isDarkBg ? "0.5" : "1"}/>}
                       <line x1="0" y1={getY(i + 1) + (effectiveRowHeight / 2)} x2={SVG_WIDTH} y2={getY(i + 1) + (effectiveRowHeight / 2)} stroke={isDarkBg ? '#334155' : '#E2E8F0'} strokeWidth="2" />
-                      <text x={LINE_RANK_X} y={getY(i + 1)} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#94A3B8' : '#64748B'} fontSize={FONT_RANK} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>{i + 1}</text>
+                      <text x={LINE_RANK_X} y={getY(i + 1)} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#94A3B8' : '#64748B'} fontSize={FONT_RANK} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif' }}>{i + 1}</text>
                     </g>
                   ))}
 
                   <g clipPath="url(#chart-clip)">
-                    <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill={isDarkBg ? '#334155' : '#CBD5E1'} fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
+                    <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill={isDarkBg ? '#334155' : '#CBD5E1'} fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
                       {getLabel(Math.floor(progress))}
                     </text>
                   </g>
@@ -618,7 +607,7 @@ export default function App() {
                         return (
                           <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - LINE_RIGHT_HUD_W}, ${pos.y})`}>
                             <rect x="30" y={-PILL_H / 2} width={LINE_RIGHT_HUD_W - 60} height={PILL_H} fill={isDarkBg ? '#0F172A' : '#FFFFFF'} rx={PILL_R} stroke={item.color} strokeWidth="3" filter={applyFilter} />
-                            <text x={LINE_RIGHT_HUD_W / 2} y="0" dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_HUD} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
+                            <text x={LINE_RIGHT_HUD_W / 2} y="0" dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_HUD} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif' }}>
                               {formatValue(pos.val)}
                             </text>
                           </g>
@@ -634,64 +623,65 @@ export default function App() {
                   ======================================================================== */}
               {chartType === 'bar' && (
                 <g>
-                  <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'sans-serif', letterSpacing: '-2px' }}>
+                  <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
                     {getLabel(Math.floor(progress))}
                   </text>
                   <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
                   
-                  {currentValsForBar.map((item) => {
-                    if (item.currentRank > safeTopN + 1) return null; 
+                  {computedItems.map((item) => {
+                    const pos = getMarkerPos(item, progress);
+                    if (pos.rank > safeTopN + 1.5) return null; 
                     
                     const hasLogo = item.logo && item.logo.trim() !== '';
-                    const barWidth = currentMaxVal === 0 ? 0 : Math.max(10, (item.currentVal / currentMaxVal) * BAR_MAX_WIDTH);
+                    // Bar Width memiliki nilai minimum agar tidak sepenuhnya hilang saat bernilai 0
+                    const barWidth = currentMaxVal === 0 ? 0 : Math.max(5, (pos.val / currentMaxVal) * BAR_MAX_WIDTH);
                     const currentEmoji = getSafeEmoji(item.points, Math.floor(progress));
 
-                    // Animasi vertikal saat salip-menyalip (menggunakan ranking desimal yang mulus)
-                    const posY = getY(item.currentRank);
-                    const barOpacity = item.currentRank > safeTopN ? Math.max(0, 1 - (item.currentRank - safeTopN)) : 1;
-
-                    // Dinamika Marker (Logo/Nama terpisah di luar bar)
+                    // Margin & Offset Kalkulasi Ekstrem
                     const showLogo = markerStyle === 'logo' || markerStyle === 'both';
                     const showName = markerStyle === 'name' || markerStyle === 'both';
+                    
+                    // Jarak dinamis untuk Logo agar dipastikan bebas/tidak kaku menempel di bar
+                    // Jika ada nama, logo mundur sejauh ukuran teks. Jika tidak ada, mundur cukup 20px (ada napas)
+                    const textMargin = isVertical ? 170 : 250; 
+                    const logoOffset = showName ? -textMargin : -BAR_LOGO_R - 20;
+
+                    const barOpacity = pos.rank > safeTopN ? Math.max(0, 1 - (pos.rank - safeTopN)) : 1;
                     const currentFilter = chartTheme === 'neon' ? 'url(#neon-glow)' : (chartTheme === 'glossy' ? 'url(#clean-shadow)' : '');
 
-                    // Posisi Logo otomatis mundur jika menggunakan nama agar tidak tumpang tindih
-                    const textMargin = isVertical ? 220 : 320; 
-                    const logoOffset = showName ? -textMargin : -BAR_LOGO_R - 15;
-
                     return (
-                      <g key={`bar-${item.id}`} transform={`translate(${BAR_START_X}, ${posY})`} opacity={barOpacity}>
+                      <g key={`bar-${item.id}`} transform={`translate(${BAR_START_X}, ${pos.y})`} opacity={barOpacity}>
                         
-                        {/* Batang Utama (Bersih) */}
-                        <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill={item.color} rx={BAR_HEIGHT / 4} opacity="0.9" filter={currentFilter} />
+                        {/* Batang Utama (Solid Pill Shape) */}
+                        <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill={item.color} rx={BAR_HEIGHT / 2} opacity="0.95" filter={currentFilter} />
                         {chartTheme === 'glossy' && (
-                          <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill="url(#gloss)" rx={BAR_HEIGHT / 4} opacity="0.4" />
+                          <rect x="0" y={-BAR_HEIGHT / 2} width={barWidth} height={BAR_HEIGHT} fill="url(#gloss)" rx={BAR_HEIGHT / 2} opacity="0.4" />
                         )}
                         
-                        {/* Angka Poin & Emoji (Berjalan mengikuti batang di sebelah Kanan) */}
-                        <text x={barWidth + 20} y="3" dominantBaseline="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_NODE * 1.8} fontWeight="900" style={{ fontFamily: 'sans-serif' }}>
-                          {formatValue(item.currentVal)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
+                        {/* Angka Poin & Emoji (Berjalan Mulus di sebelah Kanan Bar) */}
+                        <text x={barWidth + 15} y="3" dominantBaseline="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_NODE * 1.8} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif' }}>
+                          {formatValue(pos.val)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
                         </text>
 
-                        {/* Nama Tim (Terpaku Statis di Kiri) */}
-                        {showName && (
-                          <text x="-20" y="3" dominantBaseline="middle" textAnchor="end" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_NODE * 1.6} fontWeight="900" style={{ fontFamily: 'sans-serif', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.5))' }}>
-                            {item.name || item.id}
-                          </text>
-                        )}
+                        {/* Grup Elemen Kiri (Mundur ke belakang batang) */}
+                        <g transform="translate(-20, 0)">
+                          {showName && (
+                            <text x="0" y="3" dominantBaseline="middle" textAnchor="end" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={isVertical ? FONT_NODE * 1.4 : FONT_NODE * 1.6} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.4))' }}>
+                              {item.name || item.id}
+                            </text>
+                          )}
 
-                        {/* Logo Bulat (Terpaku Paling Kiri) */}
-                        {showLogo && (
-                          <g transform={`translate(${logoOffset}, 0)`}>
-                            <circle cx="0" cy="0" r={BAR_LOGO_R} fill="#1E293B" stroke={item.color} strokeWidth="4" filter={currentFilter} />
-                            {hasLogo ? (
-                              <image href={item.logo} x={-BAR_LOGO_R} y={-BAR_LOGO_R} height={BAR_LOGO_R * 2} width={BAR_LOGO_R * 2} clipPath="url(#bar-logo-clip)" preserveAspectRatio="xMidYMid slice" />
-                            ) : (
-                              <text x="0" y="3" dominantBaseline="middle" textAnchor="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.5} fontWeight="900">{item.id}</text>
-                            )}
-                          </g>
-                        )}
-
+                          {showLogo && (
+                            <g transform={`translate(${logoOffset}, 0)`}>
+                              <circle cx="0" cy="0" r={BAR_LOGO_R} fill="#1E293B" stroke={item.color} strokeWidth="4" filter={currentFilter} />
+                              {hasLogo ? (
+                                <image href={item.logo} x={-BAR_LOGO_R} y={-BAR_LOGO_R} height={BAR_LOGO_R * 2} width={BAR_LOGO_R * 2} clipPath="url(#bar-logo-clip)" preserveAspectRatio="xMidYMid slice" />
+                              ) : (
+                                <text x="0" y="3" dominantBaseline="middle" textAnchor="middle" fill="#FFFFFF" fontSize={FONT_NODE * 1.5} fontWeight="900">{item.id}</text>
+                              )}
+                            </g>
+                          )}
+                        </g>
                       </g>
                     );
                   })}
