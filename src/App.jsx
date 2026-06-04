@@ -1,24 +1,24 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, MonitorPlay, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Play, Pause, RotateCcw, Calculator } from 'lucide-react';
+import { Database, Sliders, Plus, Trash2, Video, LayoutTemplate, ClipboardPaste, X, BarChartHorizontal, TrendingUp, Play, Pause, RotateCcw, Calculator, Maximize } from 'lucide-react';
 
 // ============================================================================
 // DATA BAWAAN LENGKAP
 // ============================================================================
 export const defaultData = {
-  title: "TOP 10 YOUTUBERS 2024",
-  periodPrefix: "Month",
-  startPeriod: 1, 
-  periodStep: 1, 
+  title: "TOP 10 GOAL SCORERS WORLD CUP",
+  periodPrefix: "Year",
+  startPeriod: 1978, 
+  periodStep: 4, 
   periods: 12,
   footerText: "@GlobeChart",
-  unitLabel: "SUBSCRIBERS",
+  unitLabel: "GOALS",
   labels: [], 
   items: [
-    { id: "MRB", name: "MrBeast", color: "#0ea5e9", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/MrBeast_Logo.png/640px-MrBeast_Logo.png", points: [130000000, 135000000, 142000000, 150000000, 160000000, 175000000, 185000000, 195000000, 205000000, 220000000, 240000000, 260000000] },
-    { id: "TSR", name: "T-Series", color: "#ef4444", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/T-series-logo.svg/640px-T-series-logo.svg.png", points: [235000000, 237000000, 239000000, 241000000, 243000000, 245000000, 247000000, 249000000, 251000000, 253000000, 255000000, 257000000] },
-    { id: "COM", name: "Cocomelon", color: "#10b981", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Cocomelon_logo.svg/640px-Cocomelon_logo.svg.png", points: [152000000, 154000000, 156000000, 158000000, 160000000, 162000000, 164000000, 166000000, 168000000, 170000000, 172000000, 174000000] },
-    { id: "SET", name: "SET India", color: "#f59e0b", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/SET_India_logo.png/640px-SET_India_logo.png", points: [150000000, 152000000, 154000000, 155000000, 157000000, 159000000, 161000000, 163000000, 165000000, 167000000, 169000000, 171000000] },
-    { id: "KID", name: "Kids Diana", color: "#ec4899", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Kids_Diana_Show_logo.png/640px-Kids_Diana_Show_logo.png", points: [108000000, 110000000, 111000000, 112000000, 113000000, 114000000, 115000000, 116000000, 117000000, 118000000, 119000000, 120000000] }
+    { id: "MKL", name: "Miroslav Klose", color: "#ef4444", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Flag_of_Germany.svg/640px-Flag_of_Germany.svg.png", points: [0,0,0,0,0,0,5,10,14,16,16,16] },
+    { id: "RON", name: "Ronaldo", color: "#3b82f6", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Flag_of_Brazil.svg/640px-Flag_of_Brazil.svg.png", points: [0,0,0,0,0,4,12,15,15,15,15,15] },
+    { id: "MES", name: "Lionel Messi", color: "#eab308", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Flag_of_Argentina.svg/640px-Flag_of_Argentina.svg.png", points: [0,0,0,0,0,0,1,1,1,5,6,13] },
+    { id: "MBA", name: "Kylian Mbappé", color: "#1e3a8a", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Flag_of_France.svg/640px-Flag_of_France.svg.png", points: [0,0,0,0,0,0,0,0,0,0,4,12] },
+    { id: "PEL", name: "Pelé", color: "#22c55e", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Flag_of_Brazil.svg/640px-Flag_of_Brazil.svg.png", points: [12,12,12,12,12,12,12,12,12,12,12,12] }
   ]
 };
 
@@ -38,7 +38,7 @@ export default function App() {
   const [data, setData] = useState(defaultData);
   const [activeTab, setActiveTab] = useState('preview'); 
   const [speed, setSpeed] = useState(1);
-  const [layout, setLayout] = useState('16:9');
+  const [layout, setLayout] = useState('9:16'); 
   const [topN, setTopN] = useState(5); 
   const [markerStyle, setMarkerStyle] = useState('both'); 
   const [chartType, setChartType] = useState('bar'); 
@@ -56,10 +56,12 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const reqRef = useRef(null);
   const prevTime = useRef(null);
+  const fullscreenContainerRef = useRef(null);
 
   const getLabel = (index) => {
-    if (data.labels && data.labels[index] !== undefined && data.labels[index].trim() !== "") return data.labels[index];
-    const val = Number(data.startPeriod || 1) + (index * Number(data.periodStep || 1));
+    const safeIndex = isNaN(index) ? 0 : index;
+    if (data.labels && data.labels[safeIndex] !== undefined && data.labels[safeIndex].trim() !== "") return data.labels[safeIndex];
+    const val = Number(data.startPeriod || 1) + (safeIndex * Number(data.periodStep || 1));
     return data.periodPrefix ? `${data.periodPrefix} ${val}` : `${val}`;
   };
 
@@ -83,15 +85,16 @@ export default function App() {
   }, [data.items, data.periods]);
 
   const animate = (time) => {
-    if (prevTime.current === undefined) prevTime.current = time;
+    if (prevTime.current == null) prevTime.current = time;
     let deltaTime = time - prevTime.current;
     
-    if (deltaTime > 100) deltaTime = 16; 
+    if (deltaTime > 100 || isNaN(deltaTime)) deltaTime = 16; 
 
     const progressDelta = (deltaTime / 1000) * (speed * 1.5); 
     
     setProgress((prev) => {
-      const next = prev + progressDelta;
+      const safePrev = isNaN(prev) ? 0 : prev;
+      const next = safePrev + progressDelta;
       const maxProgress = Math.max(data.periods, 1); 
       if (next >= maxProgress) { setIsPlaying(false); return maxProgress; }
       return next;
@@ -103,16 +106,16 @@ export default function App() {
 
   useEffect(() => {
     if (isPlaying) {
-      prevTime.current = undefined; 
+      prevTime.current = null; 
       reqRef.current = requestAnimationFrame(animate);
     } else {
       cancelAnimationFrame(reqRef.current);
-      prevTime.current = undefined;
+      prevTime.current = null;
     }
     return () => cancelAnimationFrame(reqRef.current);
   }, [isPlaying, data.periods, speed]);
 
-  const resetAnimation = () => { setIsPlaying(false); setProgress(0); prevTime.current = undefined; };
+  const resetAnimation = () => { setIsPlaying(false); setProgress(0); prevTime.current = null; };
 
   const handleUpdateGeneral = (field, value) => setData(prev => ({ ...prev, [field]: value }));
   const handlePointChange = (index, periodIndex, value) => {
@@ -214,6 +217,18 @@ export default function App() {
     } catch (error) { setImportError("Terjadi kesalahan."); }
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      if (fullscreenContainerRef.current) {
+        fullscreenContainerRef.current.requestFullscreen().catch(err => {
+          alert(`Gagal membuka mode fullscreen: ${err.message}`);
+        });
+      }
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
   const renderPreview = () => {
     const isVertical = layout === '9:16';
     const SVG_WIDTH = isVertical ? 1080 : 1920; 
@@ -221,55 +236,63 @@ export default function App() {
     
     const isDarkBg = chartType === 'bar' || chartTheme === 'neon';
     
-    const HEADER_H = isVertical ? 160 : 140;
-    const FOOTER_H = isVertical ? 140 : 100;
-    const X_AXIS_H = isVertical ? 100 : 80; 
+    const HEADER_H = isVertical ? 280 : 140; 
+    const FOOTER_H = isVertical ? 420 : 120; 
+    const X_AXIS_H = isVertical ? 0 : 80;    
+    
     const CHART_Y_START = HEADER_H + X_AXIS_H; 
     const CHART_HEIGHT = SVG_HEIGHT - CHART_Y_START - FOOTER_H; 
-    const safeTopN = Math.max(topN, 2); 
+    const safeTopN = Math.max(Number(topN) || 5, 2); 
     const rowHeight = CHART_HEIGHT / safeTopN; 
 
-    // --- MARGIN & LAYOUT SETUP ---
-    const LINE_RIGHT_HUD_W = isVertical ? 340 : 420; 
+    // --- LINE CHART SAFE ZONES ---
+    const LINE_RIGHT_HUD_W = isVertical ? 380 : 450; 
     const LINE_RANK_X = isVertical ? 60 : 100;       
     const LINE_START_X = isVertical ? 180 : 250;     
-    const LINE_CHART_WIDTH = SVG_WIDTH - LINE_START_X - LINE_RIGHT_HUD_W - (isVertical ? 40 : 60); 
+    const LINE_CHART_WIDTH = SVG_WIDTH - LINE_START_X - LINE_RIGHT_HUD_W - (isVertical ? 60 : 80); 
     const NODE_OUTER_R = Math.min(rowHeight * 0.4, isVertical ? 45 : 50);
     const NODE_INNER_R = NODE_OUTER_R * 0.85;
     const LINE_WIDTH = Math.max(Math.min(rowHeight * 0.15, 12), 6);
     const FONT_NODE = Math.max(NODE_INNER_R * 0.6, 16); 
     const clipLeftX = LINE_START_X - (NODE_OUTER_R * 2);
 
-    const effectiveRowHeight = chartType === 'bar' ? Math.min(CHART_HEIGHT / safeTopN, isVertical ? 130 : 110) : rowHeight;
+    // --- BAR CHART SAFE ZONES ---
+    const effectiveRowHeight = chartType === 'bar' ? Math.min(CHART_HEIGHT / safeTopN, isVertical ? 120 : 110) : rowHeight;
     const BAR_HEIGHT = effectiveRowHeight * 0.65;
     const BAR_LOGO_R = BAR_HEIGHT / 2;
     
     const showLogo = markerStyle === 'logo' || markerStyle === 'both';
     const showName = markerStyle === 'name' || markerStyle === 'both';
 
-    const nameWidthApprox = isVertical ? 180 : 260; 
+    const nameWidthApprox = isVertical ? 220 : 280; 
     const logoWidthApprox = showLogo ? (BAR_LOGO_R * 2 + 15) : 0;
-    const totalLeftMargin = (showName ? nameWidthApprox : 0) + logoWidthApprox + 25;
-
-    const BAR_START_X = isVertical ? Math.max(120, totalLeftMargin + 40) : Math.max(200, totalLeftMargin + 60); 
-    const rightMarginReserve = isVertical ? 380 : 450; 
+    const paddingLeftSafe = isVertical ? 100 : 80; 
+    
+    const totalLeftMargin = (showName ? nameWidthApprox : 0) + logoWidthApprox + paddingLeftSafe;
+    const BAR_START_X = isVertical ? Math.max(380, totalLeftMargin) : Math.max(400, totalLeftMargin); 
+    
+    const rightMarginReserve = isVertical ? 380 : 480; 
     const BAR_MAX_WIDTH = Math.max(100, SVG_WIDTH - BAR_START_X - rightMarginReserve); 
     
     const totalBarsHeight = safeTopN * effectiveRowHeight;
     const yOffset = chartType === 'bar' ? Math.max(0, (CHART_HEIGHT - totalBarsHeight) / 2) : 0;
-    const getY = (rank) => CHART_Y_START + yOffset + ((rank - 0.5) * effectiveRowHeight);
+    
+    const getY = (rank) => {
+      const safeRank = isNaN(rank) ? 1 : rank;
+      return CHART_Y_START + yOffset + ((safeRank - 0.5) * effectiveRowHeight);
+    };
     
     const FONT_RANK = Math.min(effectiveRowHeight * 0.5, isVertical ? 45 : 50);
     const FONT_HUD  = Math.min(rowHeight * 0.5, isVertical ? 40 : 45);
     const FONT_WK   = isVertical ? 30 : 35; 
     
-    let baseTitleSize = isVertical ? 45 : 60;
+    let baseTitleSize = isVertical ? 50 : 60;
     let FONT_TITLE = baseTitleSize;
     if (data.title.length > 25) FONT_TITLE = baseTitleSize * 0.8;
     if (data.title.length > 35) FONT_TITLE = baseTitleSize * 0.65;
     if (data.title.length > 50) FONT_TITLE = baseTitleSize * 0.5;
 
-    const FONT_FOOT = isVertical ? 30 : 35;
+    const FONT_FOOT = isVertical ? 35 : 35;
     const PILL_H = Math.min(rowHeight * 0.7, 80);
     const PILL_R = PILL_H / 2;
 
@@ -279,97 +302,128 @@ export default function App() {
     const estTextWidth = footerString.length * (FONT_FOOT * 0.7);
     const totalFooterWidth = iconSize + 15 + estTextWidth;
     const footerStartX = (SVG_WIDTH - totalFooterWidth) / 2;
+    const footerYPos = isVertical ? SVG_HEIGHT - 200 : SVG_HEIGHT - (FOOTER_H / 2);
 
     const VISIBLE_WEEKS = isVertical ? 4 : 6;
     const activeVisiblePeriods = Math.min(data.periods, VISIBLE_WEEKS);
     const LINE_SPACING = LINE_CHART_WIDTH / Math.max(activeVisiblePeriods - 1, 1);
     
+    const safeProgress = isNaN(progress) ? 0 : progress;
+    const tGlobal = safeProgress - 1; 
     const panThreshold = Math.max(1, activeVisiblePeriods - 2); 
-    const panX = Math.max(0, progress - 1 - panThreshold) * LINE_SPACING;
+    const rawPanX = Math.max(0, tGlobal - panThreshold) * LINE_SPACING;
+    const safePanX = isNaN(rawPanX) ? 0 : rawPanX;
 
-    // ========================================================================
-    // ENGINE BARU: ABSOLUTE RANK INTERPOLATION (SANGAT HALUS & ANTI-TINDIH)
-    // ========================================================================
+    // --- ENGINE ANIMASI HALUS & SAFE ---
     const getEasedT = (t, style) => {
+      if (isNaN(t)) return 0;
       if (style === 'linear') return t;
-      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // Cubic easing
-      return -(Math.cos(Math.PI * t) - 1) / 2; // Sine easing (Smooth mutlak untuk Bar Chart)
+      if (style === 'dynamic') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
+      return -(Math.cos(Math.PI * t) - 1) / 2; 
     };
     
-    const lerp = (start, end, t) => start + (end - start) * t;
+    const lerp = (start, end, t) => {
+      const s = isNaN(start) ? 0 : start;
+      const e = isNaN(end) ? 0 : end;
+      const frac = isNaN(t) ? 0 : t;
+      return s + (e - s) * frac;
+    };
+
+    const getRankAndVal = (item, t) => {
+      const safeT = isNaN(t) ? 0 : t;
+      if (safeT < 0) {
+        const startR = item.originalIndex + 1; 
+        const endR = item.ranks[0] || 1;
+        const startV = 0;
+        const endV = getSafePts(item.points, 0);
+        const frac = getEasedT(safeT + 1, animStyle);
+        return { rank: lerp(startR, endR, frac), val: lerp(startV, endV, frac) };
+      }
+      
+      const p1 = Math.floor(safeT);
+      const p2 = Math.min(p1 + 1, data.periods - 1);
+      const frac = getEasedT(safeT - p1, animStyle);
+      
+      const startR = item.ranks[p1] || 1;
+      const endR = item.ranks[p2] || 1;
+      const startV = getSafePts(item.points, p1);
+      const endV = getSafePts(item.points, p2);
+
+      return { rank: lerp(startR, endR, frac), val: lerp(startV, endV, frac) };
+    };
 
     let currentMaxVal = 1;
     let currentValsForBar = [];
     
     if (chartType === 'bar') {
-      const currentPeriodIndex = Math.floor(progress); 
-      const t = progress - currentPeriodIndex; 
-      const easedT = getEasedT(t, animStyle); 
-
-      currentValsForBar = computedItems.map(item => {
-        let r1, r2, v1, v2;
-        
-        if (currentPeriodIndex === 0) {
-          // FASE 0 (INTRO): Mulai dari posisi tabel Editor, menyebar menuju Ranking 1 sebenarnya
-          r1 = item.originalIndex + 1;
-          r2 = item.ranks[0] || 1;
-          v1 = 0;
-          v2 = getSafePts(item.points, 0);
-        } else {
-          // FASE NORMAL: Bertukar peringkat dengan sangat rapi
-          const p1 = currentPeriodIndex - 1;
-          const p2 = Math.min(p1 + 1, data.periods - 1);
-          r1 = item.ranks[p1] || 1;
-          r2 = item.ranks[p2] || 1;
-          v1 = getSafePts(item.points, p1);
-          v2 = getSafePts(item.points, p2);
-        }
-
-        const currentRank = lerp(r1, r2, easedT);
-        const currentVal = lerp(v1, v2, easedT);
-        
-        return { ...item, currentRank, currentVal, rawVal: currentVal };
+      let baseMax = 1;
+      computedItems.forEach(item => {
+        const v0 = getSafePts(item.points, 0);
+        if (v0 > baseMax) baseMax = v0;
       });
 
-      // Skala batang merespon dinamis dengan mulus!
-      currentMaxVal = Math.max(10, ...currentValsForBar.map(i => i.currentVal));
+      currentValsForBar = computedItems.map(item => {
+        const rv = getRankAndVal(item, tGlobal);
+        if (tGlobal >= 0 && rv.val > currentMaxVal) currentMaxVal = rv.val;
+        return { ...item, currentRank: rv.rank, currentVal: rv.val, rawVal: rv.val };
+      });
+
+      if (tGlobal < 0) currentMaxVal = baseMax; 
     }
 
-    const displayPeriodIndex = Math.max(0, Math.min(Math.floor(Math.max(0, progress - 1)), data.periods - 1));
+    const safeCurrentMaxVal = isNaN(currentMaxVal) || currentMaxVal <= 0 ? 1 : currentMaxVal;
+    const displayPeriodIndex = Math.max(0, Math.min(Math.floor(Math.max(0, tGlobal)), data.periods - 1));
     const displayLabelText = getLabel(displayPeriodIndex);
-    const formatValue = (val) => new Intl.NumberFormat('en-US').format(Math.round(val));
+    const formatValue = (val) => new Intl.NumberFormat('en-US').format(Math.round(val || 0));
 
     return (
       <div className="flex flex-1 overflow-hidden relative">
-        {/* PANEL PENGATURAN KIRI (TANPA EXPORT) */}
+        {/* PANEL PENGATURAN KIRI */}
         <div className="w-[350px] bg-white border-r border-slate-200 shadow-xl z-10 flex flex-col p-6 overflow-y-auto shrink-0">
           <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"><Sliders size={20} className="text-blue-600"/> Animation Setup</h2>
           
           <div className="space-y-6">
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
               <button onClick={() => {
-                if (!isPlaying) prevTime.current = undefined; 
+                if (!isPlaying) prevTime.current = null; 
                 setIsPlaying(!isPlaying);
               }} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black transition-all shadow-md mb-3 transform hover:-translate-y-0.5">
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />} {isPlaying ? 'PAUSE ANIMASI' : 'PLAY ANIMASI'}
               </button>
-              <button onClick={resetAnimation} className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 py-2.5 rounded-lg font-bold border border-slate-300 transition-colors">
-                <RotateCcw size={16} /> Reset ke 0%
-              </button>
+              <div className="flex gap-2">
+                <button onClick={resetAnimation} className="flex-1 flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 py-2.5 rounded-lg font-bold border border-slate-300 transition-colors">
+                  <RotateCcw size={16} /> Reset 0%
+                </button>
+                <button onClick={toggleFullscreen} className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-2.5 rounded-lg font-bold shadow-md transition-colors" title="Layar Penuh untuk Resolusi Rekaman (OBS) Maksimal">
+                  <Maximize size={16} /> Layar Penuh
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div>
                 <div className="flex justify-between text-xs mb-2 text-slate-600 font-bold">
                   <span>Progress</span>
-                  <span className="text-blue-600">{Math.floor((progress / Math.max(data.periods, 1)) * 100)}%</span>
+                  <span className="text-blue-600">{Math.floor((safeProgress / Math.max(data.periods, 1)) * 100)}%</span>
                 </div>
-                <input type="range" min="0" max={Math.max(data.periods, 1)} step="0.01" value={progress} onChange={(e) => { setProgress(parseFloat(e.target.value)); setIsPlaying(false); prevTime.current = undefined; }} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={Math.max(data.periods, 1)} 
+                  step="0.01" 
+                  value={safeProgress} 
+                  onChange={(e) => { 
+                    const val = parseFloat(e.target.value);
+                    setProgress(isNaN(val) ? 0 : val); 
+                    setIsPlaying(false); 
+                    prevTime.current = null; 
+                  }} 
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" 
+                />
               </div>
               <div className="pt-2">
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Kecepatan Video</label>
                 <div className="flex gap-2">
-                  {/* DITAMBAHKAN KECEPATAN 0.25x UNTUK SINEMATIK */}
                   {[0.25, 0.5, 1, 1.5, 2].map(s => (
                     <button key={s} onClick={() => setSpeed(s)} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${speed === s ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>{s}x</button>
                   ))}
@@ -468,8 +522,9 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex-1 bg-slate-900 p-4 md:p-8 flex items-center justify-center overflow-hidden">
-          <div className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ height: isVertical ? '95%' : '90%', width: isVertical ? 'auto' : '100%', maxWidth: isVertical ? 'none' : '1600px', aspectRatio: isVertical ? '9/16' : '16/9' }}>
+        {/* CONTAINER LAYAR PENUH (FULLSCREEN READY) */}
+        <div ref={fullscreenContainerRef} className="flex-1 bg-[#0f172a] p-4 md:p-8 flex items-center justify-center overflow-hidden w-full h-full">
+          <div className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ height: isVertical ? '100%' : '90%', width: isVertical ? 'auto' : '100%', maxWidth: isVertical ? 'none' : '1600px', aspectRatio: isVertical ? '9/16' : '16/9' }}>
             <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <rect id="dark-bg" width={SVG_WIDTH} height={SVG_HEIGHT} fill="#0F172A" />
@@ -492,7 +547,7 @@ export default function App() {
                 <clipPath id="header-clip"><rect x={clipLeftX} y={HEADER_H} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={X_AXIS_H} /></clipPath>
                 <clipPath id="chart-clip"><rect x={clipLeftX} y={CHART_Y_START} width={SVG_WIDTH - clipLeftX - LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
                 <clipPath id="hud-clip"><rect x={SVG_WIDTH - LINE_RIGHT_HUD_W} y={CHART_Y_START} width={LINE_RIGHT_HUD_W} height={CHART_HEIGHT} /></clipPath>
-                <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + LINE_START_X + (Math.max(0, progress - 1) * LINE_SPACING)} height="3000" /></clipPath>
+                <clipPath id="reveal-clip"><rect x="-1000" y="-1000" width={1000 + LINE_START_X + safePanX} height="3000" /></clipPath>
               </defs>
 
               {isDarkBg ? <use href="#dark-bg" /> : <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="#FFFFFF" />}
@@ -505,8 +560,8 @@ export default function App() {
                 <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height={FOOTER_H} fill={isDarkBg ? '#1E293B' : '#FFCA28'} />
                 <rect x="0" y={SVG_HEIGHT - FOOTER_H} width={SVG_WIDTH} height="4" fill="#0F172A" />
                 
-                {/* FOOTER BARU: YOUTUBE LOGO & TULISAN KAPITAL */}
-                <g transform={`translate(${footerStartX}, ${SVG_HEIGHT - (FOOTER_H / 2)})`}>
+                {/* FOOTER BARU: YOUTUBE LOGO & TULISAN KAPITAL (ZONA AMAN) */}
+                <g transform={`translate(${footerStartX}, ${footerYPos})`}>
                   <svg x="0" y={-iconSize/2} width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="#FF0000">
                     <path d="M21.582,6.186c-0.23-0.86-0.908-1.538-1.768-1.768C18.254,4,12,4,12,4S5.746,4,4.186,4.418c-0.86,0.23-1.538,0.908-1.768,1.768C2,7.746,2,12,2,12s0,4.254,0.418,5.814c0.23,0.86,0.908,1.538,1.768,1.768C5.746,20,12,20,12,20s6.254,0,7.814-0.418c0.86-0.23,1.538-0.908,1.768-1.768C22,16.254,22,12,22,12S22,7.746,21.582,6.186z M10,15.464V8.536L16,12L10,15.464z"/>
                   </svg>
@@ -527,8 +582,17 @@ export default function App() {
                     </g>
                   ))}
 
+                  {/* LABEL TAHUN BESAR (WATERMARK) */}
                   <g clipPath="url(#chart-clip)">
-                    <text x={SVG_WIDTH - LINE_RIGHT_HUD_W - 40} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill={isDarkBg ? '#334155' : '#CBD5E1'} fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
+                    <text 
+                      x={SVG_WIDTH - 60} 
+                      y={isVertical ? HEADER_H + 160 : SVG_HEIGHT - FOOTER_H - 40} 
+                      textAnchor="end" 
+                      fill={isDarkBg ? '#334155' : '#CBD5E1'} 
+                      fontSize={isVertical ? "160" : "220"} 
+                      fontWeight="900" 
+                      opacity={isVertical ? "0.6" : "0.35"} 
+                      style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
                       {displayLabelText}
                     </text>
                   </g>
@@ -536,9 +600,13 @@ export default function App() {
                   <g>
                     <rect x="0" y={HEADER_H} width={SVG_WIDTH} height={X_AXIS_H} fill={isDarkBg ? '#0F172A' : '#FFFFFF'} />
                     <line x1="0" y1={CHART_Y_START} x2={SVG_WIDTH} y2={CHART_Y_START} stroke={isDarkBg ? '#334155' : '#CBD5E1'} strokeWidth="2" />
-                    <text x={SVG_WIDTH - (LINE_RIGHT_HUD_W / 2)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
+                    
+                    {!isVertical && (
+                      <text x={SVG_WIDTH - (LINE_RIGHT_HUD_W / 2)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
+                    )}
+                    
                     <g clipPath="url(#header-clip)">
-                      <g transform={`translate(${-panX}, 0)`}>
+                      <g transform={`translate(${-safePanX}, 0)`}>
                         {Array.from({ length: data.periods }).map((_, i) => (
                           <text key={`wk-${i}`} x={LINE_START_X + (i * LINE_SPACING)} y={HEADER_H + (X_AXIS_H / 2) + 5} dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#CBD5E1' : '#64748B'} fontSize={FONT_WK} fontWeight="900">
                             {getLabel(i)}
@@ -549,7 +617,7 @@ export default function App() {
                   </g>
 
                   <g clipPath="url(#chart-clip)">
-                    <g transform={`translate(${-panX}, 0)`}>
+                    <g transform={`translate(${-safePanX}, 0)`}>
                       {Array.from({ length: data.periods }).map((_, i) => (
                         <line key={`grid-x-${i}`} x1={LINE_START_X + (i * LINE_SPACING)} y1={CHART_Y_START} x2={LINE_START_X + (i * LINE_SPACING)} y2={SVG_HEIGHT - FOOTER_H} stroke={isDarkBg ? '#334155' : '#CBD5E1'} strokeWidth="2" strokeDasharray="6 6" />
                       ))}
@@ -583,21 +651,11 @@ export default function App() {
                       </g>
 
                       {computedItems.map((item) => {
-                        let currentR;
-                        const floorP = Math.floor(progress);
-                        const t = progress - floorP;
-                        const easedT = getEasedT(t, animStyle);
-
-                        if (progress < 1) {
-                          currentR = lerp(item.originalIndex + 1, item.ranks[0] || 1, easedT);
-                        } else {
-                          const w1 = floorP - 1;
-                          const w2 = Math.min(floorP, data.periods - 1);
-                          currentR = lerp(item.ranks[w1] || 1, item.ranks[w2] || 1, easedT);
-                        }
-
-                        const displayT = Math.max(0, progress - 1);
-                        const lineX = LINE_START_X + (displayT * LINE_SPACING);
+                        const { rank: currentR } = getRankAndVal(item, tGlobal);
+                        const displayT = Math.max(0, tGlobal);
+                        const rawLineX = LINE_START_X + (displayT * LINE_SPACING);
+                        const lineX = isNaN(rawLineX) ? LINE_START_X : rawLineX;
+                        const posY = getY(currentR);
 
                         if (currentR > safeTopN + 1.5) return null; 
                         const hasLogo = item.logo && item.logo.trim() !== '';
@@ -606,7 +664,7 @@ export default function App() {
                         const applyFilter = chartTheme === 'neon' ? 'url(#neon-glow)' : 'url(#clean-shadow)';
                         
                         return (
-                          <g key={`marker-${item.id}`} transform={`translate(${lineX}, ${getY(currentR)})`}>
+                          <g key={`marker-${item.id}`} transform={`translate(${lineX}, ${posY})`}>
                             {showLogo && !showName && (
                               <g>
                                 <circle r={NODE_OUTER_R} fill={isDarkBg ? '#0F172A' : '#FFFFFF'} stroke={item.color} strokeWidth={LINE_WIDTH * 0.5} filter={applyFilter} />
@@ -637,26 +695,13 @@ export default function App() {
                     <line x1={SVG_WIDTH - LINE_RIGHT_HUD_W} y1={HEADER_H} x2={SVG_WIDTH - LINE_RIGHT_HUD_W} y2={SVG_HEIGHT - FOOTER_H} stroke={isDarkBg ? '#334155' : '#CBD5E1'} strokeWidth="2" />
                     <g clipPath="url(#hud-clip)">
                       {computedItems.map((item) => {
-                        let currentR;
-                        let currentVal = 0;
-                        const floorP = Math.floor(progress);
-                        const t = progress - floorP;
-                        const easedT = getEasedT(t, animStyle);
-
-                        if (progress < 1) {
-                          currentR = lerp(item.originalIndex + 1, item.ranks[0] || 1, easedT);
-                          currentVal = lerp(0, getSafePts(item.points, 0), easedT);
-                        } else {
-                          const w1 = floorP - 1;
-                          const w2 = Math.min(floorP, data.periods - 1);
-                          currentR = lerp(item.ranks[w1] || 1, item.ranks[w2] || 1, easedT);
-                          currentVal = lerp(getSafePts(item.points, w1), getSafePts(item.points, w2), easedT);
-                        }
-
+                        const { rank: currentR, val: currentVal } = getRankAndVal(item, tGlobal);
                         if (currentR > safeTopN + 1.5) return null; 
                         const applyFilter = chartTheme === 'neon' ? 'url(#neon-glow)' : 'url(#clean-shadow)';
+                        const posY = getY(currentR);
+                        
                         return (
-                          <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - LINE_RIGHT_HUD_W}, ${getY(currentR)})`}>
+                          <g key={`hud-${item.id}`} transform={`translate(${SVG_WIDTH - LINE_RIGHT_HUD_W}, ${posY})`}>
                             <rect x="20" y={-PILL_H / 2} width={LINE_RIGHT_HUD_W - 40} height={PILL_H} fill={isDarkBg ? '#0F172A' : '#FFFFFF'} rx={PILL_R} stroke={item.color} strokeWidth="3" filter={applyFilter} />
                             <text x={LINE_RIGHT_HUD_W / 2} y="0" dominantBaseline="middle" textAnchor="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_HUD} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif' }}>
                               {formatValue(currentVal)}
@@ -672,19 +717,38 @@ export default function App() {
               {/* BAR CHART RACE */}
               {chartType === 'bar' && (
                 <g>
-                  <text x={SVG_WIDTH - 60} y={SVG_HEIGHT - FOOTER_H - 40} textAnchor="end" fill="#334155" fontSize={isVertical ? "120" : "220"} fontWeight="900" opacity="0.35" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
+                  {/* LABEL TAHUN BESAR (DIPINDAH KE ATAS UNTUK SHORTS) */}
+                  <text 
+                    x={SVG_WIDTH - 60} 
+                    y={isVertical ? HEADER_H + 110 : SVG_HEIGHT - FOOTER_H - 40} 
+                    textAnchor="end" 
+                    fill={isDarkBg ? '#334155' : '#CBD5E1'} 
+                    fontSize={isVertical ? "160" : "220"} 
+                    fontWeight="900" 
+                    opacity={isVertical ? "0.8" : "0.35"} 
+                    style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-2px' }}>
                     {displayLabelText}
                   </text>
-                  <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
+                  
+                  {/* UNIT LABEL (DISEMBUNYIKAN DI SHORTS AGAR BERSIH) */}
+                  {!isVertical && (
+                    <text x={SVG_WIDTH - 60} y={HEADER_H + 40} textAnchor="end" fill="#94A3B8" fontSize={FONT_WK} fontWeight="900" letterSpacing="2">{data.unitLabel}</text>
+                  )}
                   
                   {currentValsForBar.map((item) => {
                     if (item.currentRank > safeTopN + 1.5) return null; 
                     
                     const hasLogo = item.logo && item.logo.trim() !== '';
-                    const barWidth = currentMaxVal === 0 ? 0 : Math.max(5, (item.rawVal / currentMaxVal) * BAR_MAX_WIDTH);
+                    
+                    // Perlindungan NaN mutlak untuk Bar Width
+                    const safeRawVal = isNaN(item.rawVal) ? 0 : item.rawVal;
+                    let barWidth = safeCurrentMaxVal <= 0 ? 0 : Math.max(5, (safeRawVal / safeCurrentMaxVal) * BAR_MAX_WIDTH);
+                    if (isNaN(barWidth) || !isFinite(barWidth)) barWidth = 5;
+
                     const currentEmoji = getSafeEmoji(item.points, displayPeriodIndex);
 
-                    const textMargin = isVertical ? 170 : 250; 
+                    // Jarak dinamis untuk Logo agar dipastikan bebas
+                    const textMargin = isVertical ? 220 : 250; 
                     const logoOffset = showName ? -textMargin : -BAR_LOGO_R - 20;
 
                     const barOpacity = item.currentRank > safeTopN ? Math.max(0, 1 - (item.currentRank - safeTopN)) : 1;
@@ -701,12 +765,12 @@ export default function App() {
                         )}
                         
                         <text x={barWidth + 15} y="3" dominantBaseline="middle" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={FONT_NODE * 1.8} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif' }}>
-                          {formatValue(item.rawVal)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
+                          {formatValue(safeRawVal)} <tspan fontSize={FONT_NODE * 1.5}>{currentEmoji}</tspan>
                         </text>
 
                         <g transform="translate(-20, 0)">
                           {showName && (
-                            <text x="0" y="3" dominantBaseline="middle" textAnchor="end" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={isVertical ? FONT_NODE * 1.4 : FONT_NODE * 1.6} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.4))' }}>
+                            <text x="0" y="3" dominantBaseline="middle" textAnchor="end" fill={isDarkBg ? '#FFFFFF' : '#0F172A'} fontSize={isVertical ? FONT_NODE * 1.6 : FONT_NODE * 1.6} fontWeight="900" style={{ fontFamily: 'system-ui, sans-serif', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.4))' }}>
                               {item.name || item.id}
                             </text>
                           )}
